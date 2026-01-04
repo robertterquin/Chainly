@@ -142,7 +142,7 @@ class _SplashScreenState extends State<SplashScreen>
             child: Padding(
               padding: const EdgeInsets.all(20),
               child: Image.asset(
-                'assets/images/logo.png',
+                'assets/images/chainly_logo.png',
                 fit: BoxFit.contain,
                 errorBuilder: (context, error, stackTrace) {
                   // Fallback: Show bike icon if logo not found
