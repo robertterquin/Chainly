@@ -65,24 +65,18 @@ class WelcomeScreen extends StatelessWidget {
   }
 
   Widget _buildLogo() {
-    return ColorFiltered(
-      colorFilter: ColorFilter.mode(
-        Colors.black.withOpacity(0.8),
-        BlendMode.lighten,
-      ),
-      child: Image.asset(
-        'assets/images/chainly_logo.png',
-        width: 160,
-        height: 160,
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) {
-          return Icon(
-            Icons.directions_bike_rounded,
-            size: 160,
-            color: ChainlyTheme.primaryColor,
-          );
-        },
-      ),
+    return Image.asset(
+      'assets/images/chainly_logo.png',
+      width: 220,
+      height: 220,
+      fit: BoxFit.contain,
+      errorBuilder: (context, error, stackTrace) {
+        return Icon(
+          Icons.directions_bike_rounded,
+          size: 220,
+          color: ChainlyTheme.primaryColor,
+        );
+      },
     );
   }
 

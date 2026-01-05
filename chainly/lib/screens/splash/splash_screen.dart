@@ -69,50 +69,28 @@ class _SplashScreenState extends State<SplashScreen>
         width: double.infinity,
         height: double.infinity,
         decoration: const BoxDecoration(
-          gradient: ChainlyTheme.splashGradient,
-        ),
-        child: SafeArea(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Spacer(flex: 2),
-              // Logo with animations
-              AnimatedBuilder(
-                animation: _animationController,
-                builder: (context, child) {
-                  return FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: ScaleTransition(
-                      scale: _scaleAnimation,
-                      child: child,
-                    ),
-                  );
-                },
-                child: _buildLogo(),
-              ),
-              const Spacer(flex: 2),
-              // App version
-              AnimatedBuilder(
-                animation: _animationController,
-                builder: (context, child) {
-                  return FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: child,
-                  );
-                },
-                child: const Padding(
-                  padding: EdgeInsets.only(bottom: 32),
-                  child: Text(
-                    'v1.0.0',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ),
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFFE3F2FD), // Light blue
+              Colors.white,
             ],
+          ),
+        ),
+        child: Center(
+          child: AnimatedBuilder(
+            animation: _animationController,
+            builder: (context, child) {
+              return FadeTransition(
+                opacity: _fadeAnimation,
+                child: ScaleTransition(
+                  scale: _scaleAnimation,
+                  child: child,
+                ),
+              );
+            },
+            child: _buildLogo(),
           ),
         ),
       ),
@@ -120,63 +98,19 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Widget _buildLogo() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Logo container with glow effect
-        Container(
-          width: 140,
-          height: 140,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.white.withOpacity(0.3),
-                blurRadius: 40,
-                spreadRadius: 10,
-              ),
-            ],
-          ),
-          child: ClipOval(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Image.asset(
-                'assets/images/chainly_logo.png',
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) {
-                  // Fallback: Show bike icon if logo not found
-                  return const Icon(
-                    Icons.directions_bike_rounded,
-                    size: 70,
-                    color: ChainlyTheme.primaryColor,
-                  );
-                },
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 24),
-        // App name
-        const Text(
-          'Chainly',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 36,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.5,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Bike Maintenance Made Simple',
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.8),
-            fontSize: 16,
-            fontWeight: FontWeight.w400,
-          ),
-        ),
-      ],
+    return Image.asset(
+      'assets/images/chainly_logo.png',
+      width: 280,
+      height: 280,
+      fit: BoxFit.contain,
+      errorBuilder: (context, error, stackTrace) {
+        // Fallback: Show bike icon if logo not found
+        return const Icon(
+          Icons.directions_bike_rounded,
+          size: 280,
+          color: Colors.grey,
+        );
+      },
     );
   }
 }
