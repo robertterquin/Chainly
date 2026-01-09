@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../utils/theme.dart';
+import '../../widgets/custom_app_header.dart';
 
 /// Reminders Screen
 /// Shows list of active reminders with time-based and usage-based types,
@@ -22,7 +23,22 @@ class _RemindersScreenState extends State<RemindersScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header
-              _buildHeader(),
+              CustomAppHeader(
+                title: 'Reminders',
+                description: 'Never miss maintenance',
+                action: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: ChainlyTheme.surfaceColor,
+                    borderRadius: BorderRadius.circular(ChainlyTheme.radiusMedium),
+                    boxShadow: ChainlyTheme.cardShadow,
+                  ),
+                  child: Icon(
+                    Icons.settings_outlined,
+                    color: ChainlyTheme.textPrimary,
+                  ),
+                ),
+              ),
               const SizedBox(height: 24),
 
               // Active Reminders Stats
@@ -51,47 +67,6 @@ class _RemindersScreenState extends State<RemindersScreen> {
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
       ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Reminders',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: ChainlyTheme.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Never miss maintenance',
-              style: TextStyle(
-                fontSize: 14,
-                color: ChainlyTheme.textSecondary,
-              ),
-            ),
-          ],
-        ),
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: ChainlyTheme.surfaceColor,
-            borderRadius: BorderRadius.circular(ChainlyTheme.radiusMedium),
-            boxShadow: ChainlyTheme.cardShadow,
-          ),
-          child: Icon(
-            Icons.settings_outlined,
-            color: ChainlyTheme.textPrimary,
-          ),
-        ),
-      ],
     );
   }
 

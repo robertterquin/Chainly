@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../utils/theme.dart';
+import '../../widgets/custom_app_header.dart';
 
 /// Profile Screen
 /// Shows user info, bike info, settings access, and logout option
@@ -16,7 +17,9 @@ class ProfileScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header
-              _buildHeader(),
+              const CustomAppHeader(
+                title: 'Profile',
+              ),
               const SizedBox(height: 24),
 
               // Profile Card
@@ -41,17 +44,6 @@ class ProfileScreen extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Text(
-      'Profile',
-      style: TextStyle(
-        fontSize: 28,
-        fontWeight: FontWeight.bold,
-        color: ChainlyTheme.textPrimary,
       ),
     );
   }

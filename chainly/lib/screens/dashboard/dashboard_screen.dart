@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../utils/theme.dart';
+import '../../widgets/custom_app_header.dart';
 
 /// Dashboard (Home) Screen
 /// Shows bike status summary, last maintenance, upcoming reminders,
@@ -17,7 +18,25 @@ class DashboardScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header
-              _buildHeader(),
+              CustomAppHeader(
+                title: 'Dashboard',
+                greeting: 'Hello, Cyclist! 👋',
+                action: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: ChainlyTheme.surfaceColor,
+                    borderRadius: BorderRadius.circular(ChainlyTheme.radiusMedium),
+                    boxShadow: ChainlyTheme.cardShadow,
+                  ),
+                  child: Badge(
+                    label: const Text('2'),
+                    child: Icon(
+                      Icons.notifications_outlined,
+                      color: ChainlyTheme.textPrimary,
+                    ),
+                  ),
+                ),
+              ),
               const SizedBox(height: 24),
 
               // Bike Status Card
@@ -43,50 +62,6 @@ class DashboardScreen extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Hello, Cyclist! 👋',
-              style: TextStyle(
-                fontSize: 14,
-                color: ChainlyTheme.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Dashboard',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: ChainlyTheme.textPrimary,
-              ),
-            ),
-          ],
-        ),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: ChainlyTheme.surfaceColor,
-            borderRadius: BorderRadius.circular(ChainlyTheme.radiusMedium),
-            boxShadow: ChainlyTheme.cardShadow,
-          ),
-          child: Badge(
-            label: const Text('2'),
-            child: Icon(
-              Icons.notifications_outlined,
-              color: ChainlyTheme.textPrimary,
-            ),
-          ),
-        ),
-      ],
     );
   }
 

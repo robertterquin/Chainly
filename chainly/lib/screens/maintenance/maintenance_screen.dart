@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../utils/theme.dart';
+import '../../widgets/custom_app_header.dart';
 
 /// Maintenance Screen
 /// Shows maintenance list (logs), status indicators (Due/Done),
@@ -22,7 +23,42 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
         child: Column(
           children: [
             // Header
-            _buildHeader(context),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: CustomAppHeader(
+                title: 'Maintenance',
+                description: '12 total records',
+                action: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: ChainlyTheme.surfaceColor,
+                        borderRadius: BorderRadius.circular(ChainlyTheme.radiusMedium),
+                        boxShadow: ChainlyTheme.cardShadow,
+                      ),
+                      child: Icon(
+                        Icons.search,
+                        color: ChainlyTheme.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: ChainlyTheme.surfaceColor,
+                        borderRadius: BorderRadius.circular(ChainlyTheme.radiusMedium),
+                        boxShadow: ChainlyTheme.cardShadow,
+                      ),
+                      child: Icon(
+                        Icons.sort,
+                        color: ChainlyTheme.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
 
             // Filter Chips
             _buildFilterChips(),
@@ -44,67 +80,6 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
           'Add Maintenance',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
-      ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Maintenance',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: ChainlyTheme.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '12 total records',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: ChainlyTheme.textSecondary,
-                ),
-              ),
-            ],
-          ),
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: ChainlyTheme.surfaceColor,
-                  borderRadius: BorderRadius.circular(ChainlyTheme.radiusMedium),
-                  boxShadow: ChainlyTheme.cardShadow,
-                ),
-                child: Icon(
-                  Icons.search,
-                  color: ChainlyTheme.textPrimary,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: ChainlyTheme.surfaceColor,
-                  borderRadius: BorderRadius.circular(ChainlyTheme.radiusMedium),
-                  boxShadow: ChainlyTheme.cardShadow,
-                ),
-                child: Icon(
-                  Icons.sort,
-                  color: ChainlyTheme.textPrimary,
-                ),
-              ),
-            ],
-          ),
-        ],
       ),
     );
   }
