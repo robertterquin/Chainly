@@ -4,6 +4,7 @@ import '../screens/auth/welcome_screen.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/register_screen.dart';
 import '../screens/auth/forgot_password_screen.dart';
+import '../screens/main/main_navigation_screen.dart';
 
 /// Named routes for the Chainly app
 class AppRoutes {
@@ -15,6 +16,7 @@ class AppRoutes {
   static const String forgotPassword = '/forgot-password';
   static const String dashboard = '/dashboard';
   static const String onboarding = '/onboarding';
+  static const String main = '/main';
 
   // Route map
   static Map<String, WidgetBuilder> get routes => {
@@ -23,7 +25,7 @@ class AppRoutes {
         login: (context) => const LoginScreen(),
         register: (context) => const RegisterScreen(),
         forgotPassword: (context) => const ForgotPasswordScreen(),
-        // Dashboard and other routes will be added later
+        main: (context) => const MainNavigationScreen(),
       };
 
   // Navigation helpers

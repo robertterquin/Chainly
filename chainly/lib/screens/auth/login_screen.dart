@@ -35,8 +35,8 @@ class _LoginScreenState extends State<LoginScreen> {
       Future.delayed(const Duration(seconds: 2), () {
         if (mounted) {
           setState(() => _isLoading = false);
-          // Navigate to dashboard on success
-          // AppRoutes.navigateAndClearStack(context, AppRoutes.dashboard);
+          // Navigate to main screen on success
+          AppRoutes.navigateAndClearStack(context, AppRoutes.main);
         }
       });
     }
