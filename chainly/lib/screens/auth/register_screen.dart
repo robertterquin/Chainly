@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../utils/theme.dart';
 import '../../utils/routes.dart';
 import 'widgets/auth_input_field.dart';
@@ -34,7 +35,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  void _handleRegister() {
+  Future<void> _handleRegister() async {
     if (_formKey.currentState!.validate()) {
       if (!_acceptedTerms) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -49,14 +50,64 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
 
       setState(() => _isLoading = true);
-      // TODO: Implement actual registration logic
-      Future.delayed(const Duration(seconds: 2), () {
+      
+      try {
+        final response = await Supabase.instance.client.auth.signUp(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+          data: {
+            'full_name': _nameController.text.trim(),
+          },
+        );
+        
         if (mounted) {
           setState(() => _isLoading = false);
-          // Navigate to onboarding or dashboard on success
-          // AppRoutes.navigateAndClearStack(context, AppRoutes.onboarding);
+          
+          if (response.user != null) {
+            // Show success message
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Account created successfully! Please check your email to verify your account.'),
+                backgroundColor: ChainlyTheme.successColor,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                duration: const Duration(seconds: 4),
+              ),
+            );
+            
+            // Navigate to login screen
+            Future.delayed(const Duration(seconds: 1), () {
+              if (mounted) {
+                AppRoutes.navigateTo(context, AppRoutes.login);
+              }
+            });
+          }
         }
-      });
+      } on AuthException catch (error) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(error.message),
+              backgroundColor: ChainlyTheme.errorColor,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+        }
+      } catch (error) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Registration failed: ${error.toString()}'),
+              backgroundColor: ChainlyTheme.errorColor,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+        }
+      }
     }
   }
 

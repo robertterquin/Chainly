@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../utils/theme.dart';
+import '../../utils/routes.dart';
 import '../../widgets/custom_app_header.dart';
 
 /// Profile Screen
@@ -39,7 +41,7 @@ class ProfileScreen extends StatelessWidget {
               const SizedBox(height: 24),
 
               // Logout Button
-              _buildLogoutButton(),
+              _buildLogoutButton(context),
               const SizedBox(height: 20),
             ],
           ),
@@ -477,34 +479,81 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildLogoutButton() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      decoration: BoxDecoration(
-        color: ChainlyTheme.errorColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(ChainlyTheme.radiusMedium),
-        border: Border.all(
-          color: ChainlyTheme.errorColor.withOpacity(0.3),
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.logout,
-            color: ChainlyTheme.errorColor,
+  Widget _buildLogoutButton(BuildContext context) {
+    return GestureDetector(
+      onTap: () async {
+        // Show confirmation dialog
+        final confirm = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Log Out'),
+            content: const Text('Are you sure you want to log out?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text(
+                  'Log Out',
+                  style: TextStyle(color: ChainlyTheme.errorColor),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 10),
-          Text(
-            'Log Out',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
+        );
+
+        if (confirm == true && context.mounted) {
+          try {
+            await Supabase.instance.client.auth.signOut();
+            
+            if (context.mounted) {
+              // Navigate to welcome screen
+              AppRoutes.navigateAndClearStack(context, AppRoutes.welcome);
+            }
+          } catch (error) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Logout failed: ${error.toString()}'),
+                  backgroundColor: ChainlyTheme.errorColor,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              );
+            }
+          }
+        }
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: ChainlyTheme.errorColor.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(ChainlyTheme.radiusMedium),
+          border: Border.all(
+            color: ChainlyTheme.errorColor.withOpacity(0.3),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.logout,
               color: ChainlyTheme.errorColor,
             ),
-          ),
-        ],
+            const SizedBox(width: 10),
+            Text(
+              'Log Out',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: ChainlyTheme.errorColor,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

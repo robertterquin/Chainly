@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../utils/theme.dart';
 import '../../utils/routes.dart';
 import 'widgets/auth_input_field.dart';
@@ -25,18 +26,46 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     super.dispose();
   }
 
-  void _handleResetPassword() {
+  Future<void> _handleResetPassword() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
-      // TODO: Implement actual password reset logic
-      Future.delayed(const Duration(seconds: 2), () {
+      
+      try {
+        await Supabase.instance.client.auth.resetPasswordForEmail(
+          _emailController.text.trim(),
+        );
+        
         if (mounted) {
           setState(() {
             _isLoading = false;
             _emailSent = true;
           });
         }
-      });
+      } on AuthException catch (error) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(error.message),
+              backgroundColor: ChainlyTheme.errorColor,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+        }
+      } catch (error) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Password reset failed: ${error.toString()}'),
+              backgroundColor: ChainlyTheme.errorColor,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+        }
+      }
     }
   }
 

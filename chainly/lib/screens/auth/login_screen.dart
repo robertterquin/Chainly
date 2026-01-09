@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../utils/theme.dart';
 import '../../utils/routes.dart';
 import 'widgets/auth_input_field.dart';
@@ -28,17 +29,49 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _handleLogin() {
+  Future<void> _handleLogin() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
-      // TODO: Implement actual login logic
-      Future.delayed(const Duration(seconds: 2), () {
+      
+      try {
+        final response = await Supabase.instance.client.auth.signInWithPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
+        
         if (mounted) {
           setState(() => _isLoading = false);
-          // Navigate to main screen on success
-          AppRoutes.navigateAndClearStack(context, AppRoutes.main);
+          
+          if (response.user != null) {
+            // Navigate to main screen on success
+            AppRoutes.navigateAndClearStack(context, AppRoutes.main);
+          }
         }
-      });
+      } on AuthException catch (error) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(error.message),
+              backgroundColor: ChainlyTheme.errorColor,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+        }
+      } catch (error) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Login failed: ${error.toString()}'),
+              backgroundColor: ChainlyTheme.errorColor,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+        }
+      }
     }
   }
 
