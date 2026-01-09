@@ -212,6 +212,143 @@ flutter pub upgrade --major-versions
 - Multiple bike support
 - Offline-first caching
 
+## Complete Page Structure Reference
+
+### A. Authentication & Onboarding Pages
+1. **Splash Screen** – Chainly logo, gradient background, app version (2-3s)
+2. **Onboarding Slides** (3-4 screens) – App features overview, page indicators
+3. **Welcome Screen** – Get Started / Login options
+4. **Register Screen** – Full Name, Email, Password, Terms acceptance
+5. **Login Screen** – Email, Password, Login button, Forgot Password link
+6. **Forgot Password Screen** – Email input, Reset confirmation
+
+### B. Main Navigation Pages (Bottom Navbar – 4 Tabs)
+7. **Home (Dashboard)**
+   - Bike status summary
+   - Last maintenance info
+   - Upcoming reminders
+   - Quick actions (Add Maintenance, Start Ride)
+   - Cycling tips
+
+8. **Maintenance**
+   - Maintenance list (logs)
+   - Status indicators (Due / Done)
+   - Filter by bike or type
+
+9. **Ride**
+   - Start / Stop ride
+   - Ride stats (time, distance)
+   - Ride history
+
+10. **Profile**
+    - User info
+    - Bike info
+    - Settings access
+    - Logout
+
+### C. Maintenance-Related Pages
+11. **Add Maintenance Screen**
+    - Maintenance type (chain, brakes, tires)
+    - Date
+    - Cost
+    - Notes
+
+12. **Edit Maintenance Screen**
+    - Update existing record
+
+13. **Maintenance Detail Screen**
+    - Full maintenance info
+    - Edit / Delete actions
+
+14. **Maintenance Reminder Screen**
+    - Reminder list
+    - Enable / disable reminders
+
+### D. Ride-Related Pages
+15. **Ride Tracking Screen**
+    - Timer
+    - Distance
+    - Speed
+    - Pause / Stop
+
+16. **Ride Summary Screen**
+    - Ride stats after completion
+    - Save ride
+
+17. **Ride History Screen**
+    - List of previous rides
+
+18. **Ride Detail Screen**
+    - Detailed stats per ride
+
+### E. Bike Management Pages
+19. **My Bikes Screen**
+    - List of bikes
+    - Active bike indicator
+
+20. **Add Bike Screen**
+    - Bike name
+    - Type (Road, MTB, Gravel)
+    - Brand / Model
+
+21. **Edit Bike Screen**
+    - Update bike details
+
+### F. Stats & Insights Pages (Optional / Advanced)
+22. **Stats Overview**
+    - Weekly / Monthly distance
+    - Maintenance vs mileage
+
+23. **Maintenance Analytics**
+    - Cost tracking
+    - Frequency charts
+
+### G. Settings & Preferences
+24. **Settings Screen**
+    - Notifications toggle
+    - Theme (Light / Dark / System)
+    - Units (km / miles)
+
+25. **Notification Settings**
+    - Maintenance reminders
+    - Ride reminders
+
+26. **Theme Settings**
+    - Light / Dark / System options
+
+### H. Help & Info Pages
+27. **Tips & Guides**
+    - Chain care tips
+    - Brake maintenance guides
+
+28. **FAQ Page**
+    - Common bike questions
+
+29. **About Chainly**
+    - App info
+    - Version
+    - Developer info
+
+### I. Account Management
+30. **Change Password**
+    - Old password
+    - New password
+
+31. **Delete Account**
+    - Confirmation
+    - Warning message
+
+### J. Empty & Error States
+32. **Empty Maintenance State**
+    - "No maintenance records yet" message
+
+33. **Empty Ride History**
+    - "No rides tracked yet" message
+
+34. **Error Screen**
+    - Network error notification
+    - Retry button
+
 ## Patterns & Conventions
 
 - **State Management**: Provider or Riverpod recommended
