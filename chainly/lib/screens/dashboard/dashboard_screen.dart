@@ -165,9 +165,9 @@ class DashboardScreen extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildBikeStatItem('Last Ride', '3 days ago'),
-              _buildBikeStatItem('This Month', '245 km'),
-              _buildBikeStatItem('Services', '5 done'),
+              _buildBikeStatItem('Total Distance', '2,450 km'),
+              _buildBikeStatItem('Last Service', '4 days ago'),
+              _buildBikeStatItem('Reminders', '3 active'),
             ],
           ),
         ],
@@ -405,8 +405,8 @@ class DashboardScreen extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: _buildQuickActionButton(
-                icon: Icons.play_circle_outline,
-                label: 'Start\nRide',
+                icon: Icons.notifications_active,
+                label: 'Set\nReminder',
                 color: ChainlyTheme.accentColor,
               ),
             ),
