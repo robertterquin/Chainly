@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import '../../utils/theme.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../maintenance/maintenance_screen.dart';
+import '../ride/ride_screen.dart';
 import '../reminders/reminders_screen.dart';
 import '../profile/profile_screen.dart';
 
 /// Main Navigation Shell with Bottom Navigation Bar
-/// Contains 4 tabs: Home, Maintenance, Reminders, Profile
+/// Contains 5 tabs: Home, Maintenance, Ride, Reminders, Profile
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
 
@@ -20,6 +21,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   final List<Widget> _screens = const [
     DashboardScreen(),
     MaintenanceScreen(),
+    RideScreen(),
     RemindersScreen(),
     ProfileScreen(),
   ];
@@ -34,6 +36,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       icon: Icon(Icons.build_outlined),
       selectedIcon: Icon(Icons.build),
       label: 'Maintenance',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.directions_bike_outlined),
+      selectedIcon: Icon(Icons.directions_bike),
+      label: 'Ride',
     ),
     NavigationDestination(
       icon: Icon(Icons.notifications_outlined),
@@ -54,28 +61,45 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         index: _currentIndex,
         children: _screens,
       ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: ChainlyTheme.surfaceColor,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 20,
-              offset: const Offset(0, -5),
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Container(
+          decoration: BoxDecoration(
+            color: ChainlyTheme.surfaceColor,
+            borderRadius: BorderRadius.circular(ChainlyTheme.radiusXLarge),
+            boxShadow: [
+              BoxShadow(
+                color: ChainlyTheme.primaryColor.withValues(alpha: 0.08),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(ChainlyTheme.radiusXLarge),
+            child: NavigationBar(
+              selectedIndex: _currentIndex,
+              onDestinationSelected: (index) {
+                setState(() {
+                  _currentIndex = index;
+                });
+              },
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              height: 70,
+              indicatorColor: ChainlyTheme.primaryColor.withValues(alpha: 0.12),
+              indicatorShape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+              destinations: _destinations,
             ),
-          ],
-        ),
-        child: NavigationBar(
-          selectedIndex: _currentIndex,
-          onDestinationSelected: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
-          },
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          indicatorColor: ChainlyTheme.primaryColor.withOpacity(0.1),
-          destinations: _destinations,
+          ),
         ),
       ),
     );

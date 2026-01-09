@@ -235,12 +235,24 @@ flutter pub upgrade --major-versions
    - Status indicators (Due / Done)
    - Filter by bike or type
 
-9. **Ride**
-   - Start / Stop ride
-   - Ride stats (time, distance)
-   - Ride history
+9. **Reminders**
+   - List of active reminders
+   - Time-based and usage-based types
+   - Enable / disable toggles
+   - Snooze functionality
+   - Notification preview
 
-10. **Profile**
+10. **Ride**
+    - Purpose: Manually record ride details to calculate bike usage and trigger maintenance reminders
+    - Add Ride: Date, distance (km/miles), duration (optional), notes, bike selection
+    - Ride History: All recorded rides sorted by date (latest first)
+    - Edit / Delete: Update or remove ride entries with confirmation dialog
+    - Mileage Tracking: Automatically update bike total mileage
+    - Maintenance Integration: Notify when mileage-based maintenance is due
+    - Filtering: By bike, date range
+    - UX Features: Input validation, unit support, offline support, undo delete via Snackbar
+
+11. **Profile**
     - User info
     - Bike info
     - Settings access
@@ -264,24 +276,42 @@ flutter pub upgrade --major-versions
     - Reminder list
     - Enable / disable reminders
 
-### D. Ride-Related Pages
-15. **Ride Tracking Screen**
-    - Timer
-    - Distance
-    - Speed
-    - Pause / Stop
+### D. Ride-Related Pages (Manual Ride Recording)
+15. **Add Ride Screen**
+    - Purpose: Record manual ride details
+    - Fields:
+      - Ride date (date picker)
+      - Distance (km / miles with unit toggle)
+      - Ride duration (optional, time picker)
+      - Notes (road condition, weather, issues noticed)
+      - Bike selection (if multiple bikes exist)
+    - Input validation (no negative values)
+    - Save / Cancel buttons
 
-16. **Ride Summary Screen**
-    - Ride stats after completion
-    - Save ride
+16. **Ride History Screen**
+    - List of all recorded rides
+    - Sorted by date (latest first)
+    - Shows: Date, Distance, Duration
+    - Filtering options: By bike, date range
+    - Empty state when no rides exist
+    - Monthly distance summary
+    - Edit / Delete options per ride
 
-17. **Ride History Screen**
-    - List of previous rides
+17. **Edit Ride Screen**
+    - Update ride details
+    - Delete ride entry with confirmation dialog
+    - Undo delete option via Snackbar
 
 18. **Ride Detail Screen**
-    - Detailed stats per ride
+    - Full ride information
+    - Bike association
+    - Distance covered
+    - Duration
+    - Notes
+    - Date recorded
+    - Edit / Delete actions
 
-### E. Bike Management Pages
+### E. Bike Management Pages (Mileage Integration)
 19. **My Bikes Screen**
     - List of bikes
     - Active bike indicator
@@ -348,6 +378,26 @@ flutter pub upgrade --major-versions
 34. **Error Screen**
     - Network error notification
     - Retry button
+
+## Ride & Maintenance Integration
+
+### Mileage Tracking
+- Automatically update bike total mileage after adding a ride
+- Display current bike mileage on Dashboard
+- Track cumulative distance per bike
+
+### Maintenance Triggers (Automatic)
+- Notify user when mileage-based maintenance is due
+- Example: "Chain lubrication due after 500 km"
+- Highlight affected maintenance items in Maintenance screen
+- Link maintenance reminders to specific mileage thresholds
+
+### Smart Features
+- Unit support (km / miles toggle)
+- Simple charts for ride statistics (optional)
+- Offline support with local storage
+- Input validation (no negative values)
+- Monthly/weekly distance summaries
 
 ## Patterns & Conventions
 
