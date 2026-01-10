@@ -250,7 +250,7 @@ class MaintenanceScreen extends ConsumerWidget {
                         controller: costController,
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
-                          labelText: 'Cost (\$)',
+                          labelText: 'Cost (₱)',
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                       ),
@@ -487,7 +487,7 @@ class _MaintenanceItem extends ConsumerWidget {
     final statusColor = isDue ? ChainlyTheme.warningColor : ChainlyTheme.successColor;
     final statusText = isDue ? 'Due' : 'Done';
     final bikeName = bikeNames[record.bikeId] ?? 'Unknown Bike';
-    final costText = record.cost > 0 ? '\$${record.cost.toStringAsFixed(2)}' : '-';
+    final costText = record.cost > 0 ? '₱${record.cost.toStringAsFixed(2)}' : '-';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
