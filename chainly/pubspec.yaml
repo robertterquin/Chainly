@@ -37,6 +37,14 @@ dependencies:
   
   # Supabase for authentication and backend
   supabase_flutter: ^2.8.0
+  
+  # State Management
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
+  
+  # Dependency Injection
+  get_it: ^8.0.3
+  injectable: ^2.5.0
 
 dev_dependencies:
   flutter_test:
