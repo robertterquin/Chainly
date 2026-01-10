@@ -37,3 +37,15 @@ Future<void> setupServiceLocator() async {
     () => ReminderService(getIt<SupabaseClient>()),
   );
 }
+
+/// Easy access getters for all services
+/// Usage: authService.signInWithEmailPassword(email, password)
+AuthService get authService => getIt<AuthService>();
+
+BikeService get bikeService => getIt<BikeService>();
+
+MaintenanceService get maintenanceService => getIt<MaintenanceService>();
+
+RideService get rideService => getIt<RideService>();
+
+ReminderService get reminderService => getIt<ReminderService>();
