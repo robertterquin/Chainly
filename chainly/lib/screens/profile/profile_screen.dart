@@ -16,6 +16,7 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final bikesState = ref.watch(bikesNotifierProvider);
     final bikes = bikesState.bikes;
+    
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(

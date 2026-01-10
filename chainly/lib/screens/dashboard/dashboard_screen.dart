@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../utils/theme.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../widgets/custom_app_header.dart';
 
 /// Dashboard (Home) Screen
@@ -8,8 +9,19 @@ import '../../widgets/custom_app_header.dart';
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
+  String getGreeting() {
+  final hour = DateTime.now().hour;
+  if (hour < 12) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
+  return 'Good evening';
+}
+
   @override
   Widget build(BuildContext context) {
+
+  final user = Supabase.instance.client.auth.currentUser;
+  final String greetingName =
+  user?.userMetadata?['full_name'] ?? 'Rider';
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
@@ -20,7 +32,7 @@ class DashboardScreen extends StatelessWidget {
               // Header
               CustomAppHeader(
                 title: 'Dashboard',
-                greeting: 'Hello, Cyclist! 👋',
+                greeting:  '${getGreeting()}, $greetingName 👋',
                 action: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
