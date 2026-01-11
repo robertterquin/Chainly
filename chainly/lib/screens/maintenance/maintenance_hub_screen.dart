@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/maintenance.dart';
+import '../../models/reminder.dart';
 import '../../providers/providers.dart';
 import '../../utils/theme.dart';
 import '../../widgets/custom_app_header.dart';
@@ -13,7 +15,9 @@ class MaintenanceHubScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final maintenanceState = ref.watch(maintenanceNotifierProvider);
+    final remindersState = ref.watch(remindersNotifierProvider);
     final bikeNames = ref.watch(bikeNamesMapProvider);
+    final activeReminderCount = remindersState.reminders.where((r) => r.isEnabled).length;
 
     return Scaffold(
       body: SafeArea(
@@ -25,7 +29,7 @@ class MaintenanceHubScreen extends ConsumerWidget {
                 padding: const EdgeInsets.all(20),
                 child: CustomAppHeader(
                   title: 'Maintenance Hub',
-                  description: '${maintenanceState.records.length} records • 8 reminders',
+                  description: '${maintenanceState.records.length} records • $activeReminderCount reminders',
                   action: Row(
                     children: [
                       Container(
@@ -151,36 +155,23 @@ class MaintenanceHubScreen extends ConsumerWidget {
   }
 
   Widget _buildFloatingActionButtons(BuildContext context, WidgetRef ref) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        FloatingActionButton(
-          heroTag: 'add_reminder',
-          onPressed: () => _showAddReminderDialog(context),
-          backgroundColor: ChainlyTheme.warningColor,
-          tooltip: 'Add Reminder',
-          child: const Icon(Icons.alarm_add, color: Colors.white),
-        ),
-        const SizedBox(height: 12),
-        FloatingActionButton(
-          heroTag: 'add_maintenance',
-          onPressed: () => _showAddMaintenanceDialog(context, ref),
-          backgroundColor: ChainlyTheme.primaryColor,
-          tooltip: 'Add Maintenance',
-          child: const Icon(Icons.add, color: Colors.white),
-        ),
-      ],
+    return FloatingActionButton.extended(
+      heroTag: 'add_item',
+      onPressed: () => _showAddDialog(context, ref),
+      backgroundColor: ChainlyTheme.primaryColor,
+      tooltip: 'Add Maintenance or Reminder',
+      icon: const Icon(Icons.add, color: Colors.white),
+      label: const Text('Add', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
     );
   }
 
-  void _showAddReminderDialog(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Add Reminder - Coming soon!')),
+  void _showAddDialog(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _AddItemBottomSheet(ref: ref),
     );
-  }
-
-  void _showAddMaintenanceDialog(BuildContext context, WidgetRef ref) {
-    _showMaintenanceForm(context, ref, null);
   }
 
   void _showMaintenanceForm(BuildContext context, WidgetRef ref, Maintenance? record) {
@@ -432,16 +423,42 @@ class MaintenanceHubScreen extends ConsumerWidget {
 }
 
 // Reminders Section
-class _RemindersSection extends StatefulWidget {
+class _RemindersSection extends ConsumerWidget {
   const _RemindersSection();
 
   @override
-  State<_RemindersSection> createState() => _RemindersSectionState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final remindersState = ref.watch(remindersNotifierProvider);
+    final bikeNames = ref.watch(bikeNamesMapProvider);
+    
+    // Calculate stats
+    final activeReminders = remindersState.reminders.where((r) => r.isEnabled).toList();
+    final now = DateTime.now();
+    final dueSoon = activeReminders.where((r) {
+      if (r.type == ReminderType.timeBased && r.dueDate != null) {
+        return r.dueDate!.isAfter(now) && r.dueDate!.difference(now).inDays <= 7;
+      }
+      return false;
+    }).length;
+    final overdue = activeReminders.where((r) => r.isOverdue).length;
 
-class _RemindersSectionState extends State<_RemindersSection> {
-  @override
-  Widget build(BuildContext context) {
+    // Get upcoming reminders (overdue + due soon)
+    final upcomingReminders = activeReminders.where((r) {
+      if (r.type == ReminderType.timeBased && r.dueDate != null) {
+        return r.dueDate!.isBefore(now.add(const Duration(days: 7)));
+      }
+      return true; // Include usage-based reminders
+    }).take(5).toList();
+
+    if (remindersState.isLoading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -470,16 +487,19 @@ class _RemindersSectionState extends State<_RemindersSection> {
         const SizedBox(height: 16),
 
         // Active Reminders Stats
-        _buildActiveRemindersCard(),
+        _buildActiveRemindersCard(activeReminders.length, dueSoon, overdue),
         const SizedBox(height: 20),
 
         // Upcoming Reminders
-        _buildUpcomingReminders(),
+        if (upcomingReminders.isEmpty)
+          _buildEmptyState()
+        else
+          _buildUpcomingReminders(upcomingReminders, bikeNames, ref),
       ],
     );
   }
 
-  Widget _buildActiveRemindersCard() {
+  Widget _buildActiveRemindersCard(int total, int dueSoon, int overdue) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -526,9 +546,9 @@ class _RemindersSectionState extends State<_RemindersSection> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildReminderStatItem('8', 'Total'),
-              _buildReminderStatItem('3', 'Due Soon'),
-              _buildReminderStatItem('2', 'Overdue'),
+              _buildReminderStatItem('$total', 'Total'),
+              _buildReminderStatItem('$dueSoon', 'Due Soon'),
+              _buildReminderStatItem('$overdue', 'Overdue'),
             ],
           ),
         ],
@@ -559,7 +579,46 @@ class _RemindersSectionState extends State<_RemindersSection> {
     );
   }
 
-  Widget _buildUpcomingReminders() {
+  Widget _buildEmptyState() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: ChainlyTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(ChainlyTheme.radiusMedium),
+        boxShadow: ChainlyTheme.cardShadow,
+      ),
+      child: Center(
+        child: Column(
+          children: [
+            Icon(
+              Icons.notifications_off_outlined,
+              size: 48,
+              color: Colors.grey.shade400,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'No Active Reminders',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: ChainlyTheme.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Add your first reminder to get started',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUpcomingReminders(List<dynamic> reminders, Map<String, String> bikeNames, WidgetRef ref) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -572,47 +631,73 @@ class _RemindersSectionState extends State<_RemindersSection> {
           ),
         ),
         const SizedBox(height: 12),
-        _buildReminderCard(
-          icon: Icons.tire_repair,
-          title: 'Tire Inspection',
-          bike: 'Canyon Aeroad CF',
-          dueInfo: 'Due in 3 days',
-          isOverdue: false,
-          isEnabled: true,
-        ),
-        const SizedBox(height: 10),
-        _buildReminderCard(
-          icon: Icons.link,
-          title: 'Chain Lubrication',
-          bike: 'Trek Domane',
-          dueInfo: '50 km remaining',
-          isOverdue: false,
-          isEnabled: true,
-        ),
-        const SizedBox(height: 10),
-        _buildReminderCard(
-          icon: Icons.clean_hands,
-          title: 'Deep Clean',
-          bike: 'Trek Domane',
-          dueInfo: 'Overdue by 5 days',
-          isOverdue: true,
-          isEnabled: true,
-        ),
+        ...reminders.map((reminder) {
+          final bikeName = bikeNames[reminder.bikeId] ?? 'Unknown Bike';
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: _buildReminderCard(
+              reminder: reminder,
+              bikeName: bikeName,
+              ref: ref,
+            ),
+          );
+        }),
       ],
     );
   }
 
   Widget _buildReminderCard({
-    required IconData icon,
-    required String title,
-    required String bike,
-    required String dueInfo,
-    required bool isOverdue,
-    required bool isEnabled,
+    required dynamic reminder,
+    required String bikeName,
+    required WidgetRef ref,
   }) {
+    final isOverdue = reminder.isOverdue;
     final statusColor = isOverdue 
         ? ChainlyTheme.errorColor 
         : ChainlyTheme.warningColor;
+    
+    // Get icon based on category
+    IconData icon = Icons.build;
+    switch (reminder.category) {
+      case 'chain':
+        icon = Icons.link;
+        break;
+      case 'brakes':
+        icon = Icons.settings;
+        break;
+      case 'tires':
+        icon = Icons.tire_repair;
+        break;
+      case 'service':
+        icon = Icons.clean_hands;
+        break;
+      default:
+        icon = Icons.build;
+    }
+
+    // Get due info string
+    String dueInfo;
+    if (reminder.type == ReminderType.timeBased && reminder.dueDate != null) {
+      final days = reminder.dueDate!.difference(DateTime.now()).inDays;
+      if (days < 0) {
+        dueInfo = 'Overdue by ${-days} days';
+      } else if (days == 0) {
+        dueInfo = 'Due today';
+      } else if (days == 1) {
+        dueInfo = 'Due tomorrow';
+      } else {
+        dueInfo = 'Due in $days days';
+      }
+    } else if (reminder.type == ReminderType.usageBased) {
+      // For usage-based, we'd need current bike mileage - for now show interval
+      if (reminder.intervalDistance != null) {
+        dueInfo = '${reminder.intervalDistance!.toStringAsFixed(0)} km interval';
+      } else {
+        dueInfo = 'Usage-based';
+      }
+    } else {
+      dueInfo = 'No due date';
+    }
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -640,7 +725,7 @@ class _RemindersSectionState extends State<_RemindersSection> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
+                  reminder.title,
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -657,7 +742,7 @@ class _RemindersSectionState extends State<_RemindersSection> {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      bike,
+                      bikeName,
                       style: TextStyle(
                         fontSize: 12,
                         color: ChainlyTheme.textSecondary,
@@ -687,11 +772,9 @@ class _RemindersSectionState extends State<_RemindersSection> {
             ),
           ),
           Switch(
-            value: isEnabled,
-            onChanged: (value) {
-              setState(() {
-                // TODO: Toggle reminder
-              });
+            value: reminder.isEnabled,
+            onChanged: (value) async {
+              await ref.read(remindersNotifierProvider.notifier).toggleEnabled(reminder.id!);
             },
             activeColor: ChainlyTheme.primaryColor,
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -1032,6 +1115,587 @@ class _MaintenanceItem extends ConsumerWidget {
             SnackBar(content: Text('Failed to delete: ${e.toString()}')),
           );
         }
+      }
+    }
+  }
+}
+
+// Combined Add Item Bottom Sheet
+class _AddItemBottomSheet extends StatefulWidget {
+  final WidgetRef ref;
+
+  const _AddItemBottomSheet({required this.ref});
+
+  @override
+  State<_AddItemBottomSheet> createState() => _AddItemBottomSheetState();
+}
+
+class _AddItemBottomSheetState extends State<_AddItemBottomSheet> {
+  int _selectedTab = 0; // 0 = Maintenance, 1 = Reminder
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle bar
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Tab Selector
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _selectedTab = 0),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: _selectedTab == 0 ? ChainlyTheme.primaryColor : Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.build,
+                              color: _selectedTab == 0 ? Colors.white : ChainlyTheme.textSecondary,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Maintenance',
+                              style: TextStyle(
+                                color: _selectedTab == 0 ? Colors.white : ChainlyTheme.textSecondary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _selectedTab = 1),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: _selectedTab == 1 ? ChainlyTheme.warningColor : Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.notifications_active,
+                              color: _selectedTab == 1 ? Colors.white : ChainlyTheme.textSecondary,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Reminder',
+                              style: TextStyle(
+                                color: _selectedTab == 1 ? Colors.white : ChainlyTheme.textSecondary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Content
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: _selectedTab == 0
+                  ? _MaintenanceForm(ref: widget.ref)
+                  : _ReminderForm(ref: widget.ref),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Maintenance Form Widget
+class _MaintenanceForm extends StatefulWidget {
+  final WidgetRef ref;
+
+  const _MaintenanceForm({required this.ref});
+
+  @override
+  State<_MaintenanceForm> createState() => _MaintenanceFormState();
+}
+
+class _MaintenanceFormState extends State<_MaintenanceForm> {
+  final _titleController = TextEditingController();
+  final _costController = TextEditingController();
+  final _notesController = TextEditingController();
+  String _selectedCategory = 'chain';
+  String _selectedStatus = 'done';
+  String? _selectedBikeId;
+  DateTime _selectedDate = DateTime.now();
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _costController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bikeNames = widget.ref.read(bikeNamesMapProvider);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: _titleController,
+          decoration: InputDecoration(
+            labelText: 'Title *',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+        const SizedBox(height: 16),
+        DropdownButtonFormField<String>(
+          value: _selectedBikeId,
+          decoration: InputDecoration(
+            labelText: 'Bike *',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          items: bikeNames.entries
+              .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
+              .toList(),
+          onChanged: (value) => setState(() => _selectedBikeId = value),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                value: _selectedCategory,
+                decoration: InputDecoration(
+                  labelText: 'Category',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                items: ['chain', 'brakes', 'tires', 'service', 'other']
+                    .map((c) => DropdownMenuItem(value: c, child: Text(c.capitalize())))
+                    .toList(),
+                onChanged: (value) => setState(() => _selectedCategory = value!),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                value: _selectedStatus,
+                decoration: InputDecoration(
+                  labelText: 'Status',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                items: ['done', 'due']
+                    .map((s) => DropdownMenuItem(value: s, child: Text(s.capitalize())))
+                    .toList(),
+                onChanged: (value) => setState(() => _selectedStatus = value!),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: GestureDetector(
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: _selectedDate,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2030),
+                  );
+                  if (picked != null) setState(() => _selectedDate = picked);
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade400),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.calendar_today, size: 20),
+                      const SizedBox(width: 8),
+                      Text('${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}'),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextField(
+                controller: _costController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Cost (₱)',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _notesController,
+          maxLines: 3,
+          decoration: InputDecoration(
+            labelText: 'Notes (optional)',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+        const SizedBox(height: 24),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _saveMaintenance,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: ChainlyTheme.primaryColor,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text(
+              'Add Maintenance',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+
+  Future<void> _saveMaintenance() async {
+    if (_titleController.text.isEmpty || _selectedBikeId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill in title and select a bike')),
+      );
+      return;
+    }
+
+    final maintenance = Maintenance(
+      bikeId: _selectedBikeId!,
+      title: _titleController.text.trim(),
+      category: MaintenanceCategory.fromString(_selectedCategory),
+      status: MaintenanceStatus.fromString(_selectedStatus),
+      date: _selectedDate,
+      cost: double.tryParse(_costController.text) ?? 0,
+      notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+    );
+
+    try {
+      await widget.ref.read(maintenanceNotifierProvider.notifier).addMaintenance(maintenance);
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save: ${e.toString()}')),
+        );
+      }
+    }
+  }
+}
+
+// Reminder Form Widget
+class _ReminderForm extends StatefulWidget {
+  final WidgetRef ref;
+
+  const _ReminderForm({required this.ref});
+
+  @override
+  State<_ReminderForm> createState() => _ReminderFormState();
+}
+
+class _ReminderFormState extends State<_ReminderForm> {
+  final _titleController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final _intervalDaysController = TextEditingController();
+  final _intervalDistanceController = TextEditingController();
+  String _selectedType = 'time_based';
+  String _selectedCategory = 'chain';
+  String _selectedPriority = 'normal';
+  String? _selectedBikeId;
+  DateTime _selectedDueDate = DateTime.now().add(const Duration(days: 7));
+  bool _isRecurring = true;
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    _intervalDaysController.dispose();
+    _intervalDistanceController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bikeNames = widget.ref.read(bikeNamesMapProvider);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: _titleController,
+          decoration: InputDecoration(
+            labelText: 'Title *',
+            hintText: 'e.g., Chain Lubrication',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _descriptionController,
+          decoration: InputDecoration(
+            labelText: 'Description (optional)',
+            hintText: 'Additional details',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          maxLines: 2,
+        ),
+        const SizedBox(height: 16),
+        DropdownButtonFormField<String>(
+          value: _selectedBikeId,
+          decoration: InputDecoration(
+            labelText: 'Bike *',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          items: bikeNames.entries
+              .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
+              .toList(),
+          onChanged: (value) => setState(() => _selectedBikeId = value),
+        ),
+        const SizedBox(height: 16),
+        DropdownButtonFormField<String>(
+          value: _selectedType,
+          decoration: InputDecoration(
+            labelText: 'Reminder Type',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          items: const [
+            DropdownMenuItem(value: 'time_based', child: Text('Time-based (days)')),
+            DropdownMenuItem(value: 'usage_based', child: Text('Usage-based (km)')),
+          ],
+          onChanged: (value) => setState(() => _selectedType = value!),
+        ),
+        const SizedBox(height: 16),
+        if (_selectedType == 'time_based') ...[
+          TextField(
+            controller: _intervalDaysController,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              labelText: 'Interval (days) *',
+              hintText: 'e.g., 14 for every 2 weeks',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+          const SizedBox(height: 16),
+          GestureDetector(
+            onTap: () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: _selectedDueDate,
+                firstDate: DateTime.now(),
+                lastDate: DateTime(2030),
+              );
+              if (picked != null) setState(() => _selectedDueDate = picked);
+            },
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade400),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.calendar_today, size: 20),
+                  const SizedBox(width: 8),
+                  Text('Due Date: ${_selectedDueDate.day}/${_selectedDueDate.month}/${_selectedDueDate.year}'),
+                ],
+              ),
+            ),
+          ),
+        ] else ...[
+          TextField(
+            controller: _intervalDistanceController,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              labelText: 'Interval Distance (km) *',
+              hintText: 'e.g., 500 for every 500 km',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ],
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                value: _selectedCategory,
+                decoration: InputDecoration(
+                  labelText: 'Category',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                items: ['chain', 'brakes', 'tires', 'service', 'other']
+                    .map((c) => DropdownMenuItem(value: c, child: Text(c.capitalize())))
+                    .toList(),
+                onChanged: (value) => setState(() => _selectedCategory = value!),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                value: _selectedPriority,
+                decoration: InputDecoration(
+                  labelText: 'Priority',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'low', child: Text('Low')),
+                  DropdownMenuItem(value: 'normal', child: Text('Normal')),
+                  DropdownMenuItem(value: 'high', child: Text('High')),
+                ],
+                onChanged: (value) => setState(() => _selectedPriority = value!),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        SwitchListTile(
+          title: const Text('Recurring Reminder'),
+          subtitle: Text(_isRecurring 
+              ? 'Will repeat after completion' 
+              : 'One-time reminder'),
+          value: _isRecurring,
+          onChanged: (value) => setState(() => _isRecurring = value),
+          activeColor: ChainlyTheme.primaryColor,
+          contentPadding: EdgeInsets.zero,
+        ),
+        const SizedBox(height: 24),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _saveReminder,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: ChainlyTheme.warningColor,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text(
+              'Add Reminder',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+
+  Future<void> _saveReminder() async {
+    if (_titleController.text.isEmpty || _selectedBikeId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill in title and select a bike')),
+      );
+      return;
+    }
+
+    if (_selectedType == 'time_based' && _intervalDaysController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter interval days')),
+      );
+      return;
+    }
+
+    if (_selectedType == 'usage_based' && _intervalDistanceController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter interval distance')),
+      );
+      return;
+    }
+
+    // Get current user ID
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('User not authenticated')),
+      );
+      return;
+    }
+
+    final reminder = Reminder(
+      userId: userId,
+      bikeId: _selectedBikeId!,
+      title: _titleController.text.trim(),
+      description: _descriptionController.text.trim().isEmpty 
+          ? null 
+          : _descriptionController.text.trim(),
+      type: _selectedType == 'time_based' ? ReminderType.timeBased : ReminderType.usageBased,
+      intervalDays: _selectedType == 'time_based' 
+          ? int.tryParse(_intervalDaysController.text) 
+          : null,
+      dueDate: _selectedType == 'time_based' ? _selectedDueDate : null,
+      intervalDistance: _selectedType == 'usage_based' 
+          ? double.tryParse(_intervalDistanceController.text) 
+          : null,
+      isRecurring: _isRecurring,
+      category: _selectedCategory,
+      priority: ReminderPriority.fromString(_selectedPriority),
+    );
+
+    try {
+      await widget.ref.read(remindersNotifierProvider.notifier).addReminder(reminder);
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save: ${e.toString()}')),
+        );
       }
     }
   }
