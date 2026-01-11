@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/di/service_locator.dart';
 import '../../services/maintenance_service.dart';
@@ -61,11 +62,17 @@ class MaintenanceNotifier extends StateNotifier<MaintenanceState> {
   }
 
   Future<void> loadMaintenance() async {
+    debugPrint('MaintenanceNotifier: Loading maintenance records...');
     state = state.copyWith(isLoading: true, error: null);
     try {
       final records = await _maintenanceService.getMaintenanceRecords();
+      debugPrint('MaintenanceNotifier: Loaded ${records.length} records');
+      for (var r in records) {
+        debugPrint('  - ${r.title} (bikeId: ${r.bikeId}, status: ${r.status})');
+      }
       state = state.copyWith(records: records, isLoading: false);
     } catch (e) {
+      debugPrint('MaintenanceNotifier: Error loading - $e');
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/di/service_locator.dart';
 import '../../services/bike_service.dart';
@@ -42,11 +43,17 @@ class BikesNotifier extends StateNotifier<BikesState> {
   }
 
   Future<void> loadBikes() async {
+    debugPrint('BikesNotifier: Loading bikes...');
     state = state.copyWith(isLoading: true, error: null);
     try {
       final bikes = await _bikeService.getBikes();
+      debugPrint('BikesNotifier: Loaded ${bikes.length} bikes');
+      for (var b in bikes) {
+        debugPrint('  - ${b.name} (id: ${b.id}, mileage: ${b.totalMileage})');
+      }
       state = state.copyWith(bikes: bikes, isLoading: false);
     } catch (e) {
+      debugPrint('BikesNotifier: Error loading - $e');
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
