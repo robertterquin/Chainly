@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../utils/theme.dart';
 import '../dashboard/dashboard_screen.dart';
-import '../maintenance/maintenance_screen.dart';
+import '../maintenance/maintenance_hub_screen.dart';
 import '../ride/ride_screen.dart';
-import '../reminders/reminders_screen.dart';
 import '../profile/profile_screen.dart';
 
 /// Main Navigation Shell with Bottom Navigation Bar
-/// Contains 5 tabs: Home, Maintenance, Ride, Reminders, Profile
+/// Contains 4 tabs: Home, Maintenance Hub, Ride, Profile
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
 
@@ -20,9 +19,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   final List<Widget> _screens = const [
     DashboardScreen(),
-    MaintenanceScreen(),
+    MaintenanceHubScreen(),
     RideScreen(),
-    RemindersScreen(),
     ProfileScreen(),
   ];
 
@@ -41,11 +39,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       icon: Icon(Icons.directions_bike_outlined),
       selectedIcon: Icon(Icons.directions_bike),
       label: 'Ride',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.notifications_outlined),
-      selectedIcon: Icon(Icons.notifications),
-      label: 'Reminders',
     ),
     NavigationDestination(
       icon: Icon(Icons.person_outline),

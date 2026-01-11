@@ -5,45 +5,30 @@ import '../../providers/providers.dart';
 import '../../utils/theme.dart';
 import '../../widgets/custom_app_header.dart';
 
-/// Maintenance Screen (Riverpod Version)
-/// Shows maintenance list (logs), status indicators (Due/Done),
-/// and filter options by bike or type
-class MaintenanceScreen extends ConsumerWidget {
-  const MaintenanceScreen({super.key});
+/// Unified Maintenance Hub Screen
+/// Combines reminders and maintenance logs in one scrollable view
+class MaintenanceHubScreen extends ConsumerWidget {
+  const MaintenanceHubScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(maintenanceNotifierProvider);
+    final maintenanceState = ref.watch(maintenanceNotifierProvider);
     final bikeNames = ref.watch(bikeNamesMapProvider);
 
     return Scaffold(
       body: SafeArea(
-        child: Column(
-          children: [
+        child: CustomScrollView(
+          slivers: [
             // Header
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: CustomAppHeader(
-                title: 'Maintenance',
-                description: '${state.records.length} total records',
-                action: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: ChainlyTheme.surfaceColor,
-                        borderRadius: BorderRadius.circular(ChainlyTheme.radiusMedium),
-                        boxShadow: ChainlyTheme.cardShadow,
-                      ),
-                      child: Icon(
-                        Icons.search,
-                        color: ChainlyTheme.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    GestureDetector(
-                      onTap: () => ref.read(maintenanceNotifierProvider.notifier).loadMaintenance(),
-                      child: Container(
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: CustomAppHeader(
+                  title: 'Maintenance Hub',
+                  description: '${maintenanceState.records.length} records • 8 reminders',
+                  action: Row(
+                    children: [
+                      Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
                           color: ChainlyTheme.surfaceColor,
@@ -51,10 +36,71 @@ class MaintenanceScreen extends ConsumerWidget {
                           boxShadow: ChainlyTheme.cardShadow,
                         ),
                         child: Icon(
-                          Icons.refresh,
+                          Icons.search,
                           color: ChainlyTheme.textPrimary,
                         ),
                       ),
+                      const SizedBox(width: 10),
+                      GestureDetector(
+                        onTap: () => ref.read(maintenanceNotifierProvider.notifier).loadMaintenance(),
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: ChainlyTheme.surfaceColor,
+                            borderRadius: BorderRadius.circular(ChainlyTheme.radiusMedium),
+                            boxShadow: ChainlyTheme.cardShadow,
+                          ),
+                          child: Icon(
+                            Icons.refresh,
+                            color: ChainlyTheme.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // Reminders Section
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: _RemindersSection(),
+              ),
+            ),
+
+            // Divider
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                child: Divider(color: Colors.grey.shade300, thickness: 1),
+              ),
+            ),
+
+            // Maintenance Section Header
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.build, 
+                          color: ChainlyTheme.primaryColor, 
+                          size: 24,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Maintenance Log',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: ChainlyTheme.textPrimary,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -62,33 +108,74 @@ class MaintenanceScreen extends ConsumerWidget {
             ),
 
             // Filter Chips
-            _FilterChips(),
+            SliverToBoxAdapter(
+              child: _FilterChips(),
+            ),
+
+            const SliverToBoxAdapter(child: SizedBox(height: 8)),
 
             // Maintenance List
-            Expanded(
-              child: state.isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : state.error != null
-                      ? _ErrorState(error: state.error!)
-                      : state.filteredRecords.isEmpty
-                          ? const _EmptyState()
-                          : _MaintenanceList(
-                              records: state.filteredRecords,
-                              bikeNames: bikeNames,
-                            ),
-            ),
+            if (maintenanceState.isLoading)
+              const SliverFillRemaining(
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (maintenanceState.error != null)
+              SliverFillRemaining(
+                child: _ErrorState(error: maintenanceState.error!),
+              )
+            else if (maintenanceState.filteredRecords.isEmpty)
+              const SliverFillRemaining(
+                child: _EmptyState(type: 'maintenance'),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.all(16),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      if (index == maintenanceState.filteredRecords.length) {
+                        return const SizedBox(height: 100); // Space for FABs
+                      }
+                      final record = maintenanceState.filteredRecords[index];
+                      return _MaintenanceItem(record: record, bikeNames: bikeNames);
+                    },
+                    childCount: maintenanceState.filteredRecords.length + 1,
+                  ),
+                ),
+              ),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddMaintenanceDialog(context, ref),
-        backgroundColor: ChainlyTheme.primaryColor,
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text(
-          'Add Maintenance',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+      floatingActionButton: _buildFloatingActionButtons(context, ref),
+    );
+  }
+
+  Widget _buildFloatingActionButtons(BuildContext context, WidgetRef ref) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        FloatingActionButton(
+          heroTag: 'add_reminder',
+          onPressed: () => _showAddReminderDialog(context),
+          backgroundColor: ChainlyTheme.warningColor,
+          tooltip: 'Add Reminder',
+          child: const Icon(Icons.alarm_add, color: Colors.white),
         ),
-      ),
+        const SizedBox(height: 12),
+        FloatingActionButton(
+          heroTag: 'add_maintenance',
+          onPressed: () => _showAddMaintenanceDialog(context, ref),
+          backgroundColor: ChainlyTheme.primaryColor,
+          tooltip: 'Add Maintenance',
+          child: const Icon(Icons.add, color: Colors.white),
+        ),
+      ],
+    );
+  }
+
+  void _showAddReminderDialog(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Add Reminder - Coming soon!')),
     );
   }
 
@@ -344,6 +431,278 @@ class MaintenanceScreen extends ConsumerWidget {
   }
 }
 
+// Reminders Section
+class _RemindersSection extends StatefulWidget {
+  const _RemindersSection();
+
+  @override
+  State<_RemindersSection> createState() => _RemindersSectionState();
+}
+
+class _RemindersSectionState extends State<_RemindersSection> {
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.notifications_active, 
+                  color: ChainlyTheme.primaryColor, 
+                  size: 24,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Reminders',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: ChainlyTheme.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // Active Reminders Stats
+        _buildActiveRemindersCard(),
+        const SizedBox(height: 20),
+
+        // Upcoming Reminders
+        _buildUpcomingReminders(),
+      ],
+    );
+  }
+
+  Widget _buildActiveRemindersCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: ChainlyTheme.primaryGradient,
+        borderRadius: BorderRadius.circular(ChainlyTheme.radiusLarge),
+        boxShadow: ChainlyTheme.buttonShadow,
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Active Reminders',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.white.withValues(alpha: 0.8),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.notifications_active, color: Colors.white, size: 16),
+                    SizedBox(width: 4),
+                    Text(
+                      'All Enabled',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildReminderStatItem('8', 'Total'),
+              _buildReminderStatItem('3', 'Due Soon'),
+              _buildReminderStatItem('2', 'Overdue'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReminderStatItem(String value, String label) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            color: Colors.white.withValues(alpha: 0.7),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUpcomingReminders() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Due Soon',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: ChainlyTheme.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 12),
+        _buildReminderCard(
+          icon: Icons.tire_repair,
+          title: 'Tire Inspection',
+          bike: 'Canyon Aeroad CF',
+          dueInfo: 'Due in 3 days',
+          isOverdue: false,
+          isEnabled: true,
+        ),
+        const SizedBox(height: 10),
+        _buildReminderCard(
+          icon: Icons.link,
+          title: 'Chain Lubrication',
+          bike: 'Trek Domane',
+          dueInfo: '50 km remaining',
+          isOverdue: false,
+          isEnabled: true,
+        ),
+        const SizedBox(height: 10),
+        _buildReminderCard(
+          icon: Icons.clean_hands,
+          title: 'Deep Clean',
+          bike: 'Trek Domane',
+          dueInfo: 'Overdue by 5 days',
+          isOverdue: true,
+          isEnabled: true,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReminderCard({
+    required IconData icon,
+    required String title,
+    required String bike,
+    required String dueInfo,
+    required bool isOverdue,
+    required bool isEnabled,
+  }) {
+    final statusColor = isOverdue 
+        ? ChainlyTheme.errorColor 
+        : ChainlyTheme.warningColor;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: ChainlyTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(ChainlyTheme.radiusMedium),
+        boxShadow: ChainlyTheme.cardShadow,
+        border: isOverdue
+            ? Border.all(color: ChainlyTheme.errorColor.withValues(alpha: 0.3), width: 1.5)
+            : null,
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(ChainlyTheme.radiusSmall),
+            ),
+            child: Icon(icon, color: statusColor, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: ChainlyTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.pedal_bike,
+                      size: 12,
+                      color: ChainlyTheme.textSecondary,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      bike,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: ChainlyTheme.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Icon(
+                      isOverdue ? Icons.warning_rounded : Icons.schedule,
+                      size: 12,
+                      color: statusColor,
+                    ),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        dueInfo,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: statusColor,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: isEnabled,
+            onChanged: (value) {
+              setState(() {
+                // TODO: Toggle reminder
+              });
+            },
+            activeColor: ChainlyTheme.primaryColor,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Filter Chips
 class _FilterChips extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -387,6 +746,7 @@ class _FilterChips extends ConsumerWidget {
   }
 }
 
+// Error State
 class _ErrorState extends StatelessWidget {
   final String error;
 
@@ -414,8 +774,11 @@ class _ErrorState extends StatelessWidget {
   }
 }
 
+// Empty State
 class _EmptyState extends StatelessWidget {
-  const _EmptyState();
+  final String type;
+
+  const _EmptyState({required this.type});
 
   @override
   Widget build(BuildContext context) {
@@ -444,34 +807,7 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-class _MaintenanceList extends ConsumerWidget {
-  final List<Maintenance> records;
-  final Map<String, String> bikeNames;
-
-  const _MaintenanceList({
-    required this.records,
-    required this.bikeNames,
-  });
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return RefreshIndicator(
-      onRefresh: () => ref.read(maintenanceNotifierProvider.notifier).loadMaintenance(),
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: records.length + 1, // +1 for bottom padding
-        itemBuilder: (context, index) {
-          if (index == records.length) {
-            return const SizedBox(height: 80); // Space for FAB
-          }
-          final record = records[index];
-          return _MaintenanceItem(record: record, bikeNames: bikeNames);
-        },
-      ),
-    );
-  }
-}
-
+// Maintenance Item
 class _MaintenanceItem extends ConsumerWidget {
   final Maintenance record;
   final Map<String, String> bikeNames;
@@ -635,7 +971,7 @@ class _MaintenanceItem extends ConsumerWidget {
   Future<void> _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {
     switch (action) {
       case 'edit':
-        final screen = context.findAncestorWidgetOfExactType<MaintenanceScreen>();
+        final screen = context.findAncestorWidgetOfExactType<MaintenanceHubScreen>();
         if (screen != null) {
           screen._showMaintenanceForm(context, ref, record);
         }
