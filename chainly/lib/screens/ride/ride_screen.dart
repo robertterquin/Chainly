@@ -505,9 +505,10 @@ class RideScreen extends ConsumerWidget {
   void _showAddRideDialog(BuildContext context, WidgetRef ref, Map<String, String> bikeNames) {
     final distanceController = TextEditingController();
     final notesController = TextEditingController();
+    final durationHoursController = TextEditingController();
+    final durationMinutesController = TextEditingController();
     String? selectedBikeId = bikeNames.keys.firstOrNull;
     DateTime selectedDate = DateTime.now();
-    TimeOfDay? selectedDuration;
 
     if (bikeNames.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -617,45 +618,35 @@ class RideScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
 
-                // Duration (Optional)
-                GestureDetector(
-                  onTap: () async {
-                    final picked = await showTimePicker(
-                      context: context,
-                      initialTime: selectedDuration ?? const TimeOfDay(hour: 1, minute: 0),
-                      builder: (context, child) {
-                        return MediaQuery(
-                          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: false),
-                          child: child!,
-                        );
-                      },
-                    );
-                    if (picked != null) {
-                      setModalState(() => selectedDuration = picked);
-                    }
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade400),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.schedule, size: 20),
-                        const SizedBox(width: 12),
-                        Text(
-                          selectedDuration != null
-                              ? 'Duration: ${selectedDuration!.hour}h ${selectedDuration!.minute}m'
-                              : 'Duration (optional)',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: selectedDuration != null ? Colors.black : Colors.grey.shade600,
-                          ),
+                // Duration (Optional) - Hours and Minutes
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: durationHoursController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: 'Hours',
+                          hintText: '0',
+                          suffixText: 'h',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                      ],
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: durationMinutesController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: 'Minutes',
+                          hintText: '0',
+                          suffixText: 'm',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
 
@@ -691,13 +682,19 @@ class RideScreen extends ConsumerWidget {
                         return;
                       }
 
+                      // Parse duration from controllers
+                      Duration? rideDuration;
+                      final hours = int.tryParse(durationHoursController.text.trim()) ?? 0;
+                      final minutes = int.tryParse(durationMinutesController.text.trim()) ?? 0;
+                      if (hours > 0 || minutes > 0) {
+                        rideDuration = Duration(hours: hours, minutes: minutes);
+                      }
+
                       final newRide = Ride(
                         bikeId: selectedBikeId!,
                         date: selectedDate,
                         distance: distance,
-                        duration: selectedDuration != null
-                            ? Duration(hours: selectedDuration!.hour, minutes: selectedDuration!.minute)
-                            : null,
+                        duration: rideDuration,
                         notes: notesController.text.trim().isEmpty 
                             ? null 
                             : notesController.text.trim(),
