@@ -5,6 +5,7 @@ import '../../services/bike_service.dart';
 import '../../services/maintenance_service.dart';
 import '../../services/ride_service.dart';
 import '../../services/reminder_service.dart';
+import '../../services/cycling_tips_service.dart';
 
 /// Global service locator instance
 final getIt = GetIt.instance;
@@ -36,6 +37,10 @@ Future<void> setupServiceLocator() async {
   getIt.registerLazySingleton<ReminderService>(
     () => ReminderService(getIt<SupabaseClient>()),
   );
+
+  getIt.registerLazySingleton<CyclingTipsService>(
+    () => CyclingTipsService(getIt<SupabaseClient>()),
+  );
 }
 
 /// Easy access getters for all services
@@ -49,3 +54,5 @@ MaintenanceService get maintenanceService => getIt<MaintenanceService>();
 RideService get rideService => getIt<RideService>();
 
 ReminderService get reminderService => getIt<ReminderService>();
+
+CyclingTipsService get cyclingTipsService => getIt<CyclingTipsService>();

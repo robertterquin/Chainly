@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../utils/theme.dart';
 import '../../widgets/custom_app_header.dart';
 import '../../providers/providers.dart';
 import '../../models/models.dart';
+import '../../services/cycling_tips_service.dart';
+import '../../core/di/service_locator.dart';
 
 /// Dashboard (Home) Screen
 /// Shows bike status summary, last maintenance, upcoming reminders,
@@ -672,54 +675,87 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with WidgetsB
   }
 
   Widget _buildCyclingTipsSection() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: ChainlyTheme.accentColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(ChainlyTheme.radiusMedium),
-        border: Border.all(
-          color: ChainlyTheme.accentColor.withOpacity(0.3),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: ChainlyTheme.accentColor.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(ChainlyTheme.radiusSmall),
-            ),
-            child: Icon(
-              Icons.lightbulb_outline,
-              color: ChainlyTheme.accentColor,
+    return FutureBuilder<CyclingTip>(
+      future: cyclingTipsService.getDailyTip(),
+      builder: (context, snapshot) {
+        final tip = snapshot.data;
+        final isLoading = snapshot.connectionState == ConnectionState.waiting;
+        
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: ChainlyTheme.accentColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(ChainlyTheme.radiusMedium),
+            border: Border.all(
+              color: ChainlyTheme.accentColor.withOpacity(0.3),
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Tip of the Day',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: ChainlyTheme.accentDark,
-                  ),
+          child: isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: ChainlyTheme.accentColor.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(ChainlyTheme.radiusSmall),
+                      ),
+                      child: Icon(
+                        Icons.lightbulb_outline,
+                        color: ChainlyTheme.accentColor,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            tip?.title ?? 'Tip of the Day',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: ChainlyTheme.accentDark,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            tip?.tipText ?? 'Loading tip...',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: ChainlyTheme.textSecondary,
+                            ),
+                          ),
+                          if (tip != null) ...[
+                            const SizedBox(height: 8),
+                            GestureDetector(
+                              onTap: () async {
+                                if (tip.sourceUrl != null) {
+                                  final uri = Uri.parse(tip.sourceUrl!);
+                                  if (await canLaunchUrl(uri)) {
+                                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                  }
+                                }
+                              },
+                              child: Text(
+                                'Source: ${tip.source}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontStyle: FontStyle.italic,
+                                  color: ChainlyTheme.primaryColor,
+                                  decoration: tip.sourceUrl != null ? TextDecoration.underline : null,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Clean your chain every 200-300km to extend its lifespan and maintain smooth shifting.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: ChainlyTheme.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
