@@ -702,6 +702,8 @@ class RideScreen extends ConsumerWidget {
 
                       try {
                         await ref.read(ridesNotifierProvider.notifier).addRide(newRide);
+                        // Refresh bikes to update mileage in dashboard
+                        await ref.read(bikesNotifierProvider.notifier).loadBikes();
                         if (context.mounted) {
                           Navigator.pop(context);
                           ScaffoldMessenger.of(context).showSnackBar(

@@ -16,15 +16,42 @@ class DashboardScreen extends ConsumerStatefulWidget {
   ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+class _DashboardScreenState extends ConsumerState<DashboardScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Refresh data when dashboard loads
+    _refreshData();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshData();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh data when returning to this screen
+    _refreshData();
+  }
+
+  void _refreshData() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(bikesNotifierProvider.notifier).loadBikes();
-      ref.read(maintenanceNotifierProvider.notifier).loadMaintenance();
-      ref.read(remindersNotifierProvider.notifier).loadReminders();
+      if (mounted) {
+        ref.read(bikesNotifierProvider.notifier).loadBikes();
+        ref.read(maintenanceNotifierProvider.notifier).loadMaintenance();
+        ref.read(remindersNotifierProvider.notifier).loadReminders();
+      }
     });
   }
 
