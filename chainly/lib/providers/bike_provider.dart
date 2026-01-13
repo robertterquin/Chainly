@@ -107,7 +107,6 @@ final bikesProvider = Provider<List<Bike>>((ref) {
   return ref.watch(bikesNotifierProvider).bikes;
 });
 
-/// Bike Names Map Provider (for dropdowns) - derived from bikes state
 final bikeNamesMapProvider = Provider<Map<String, String>>((ref) {
   final bikes = ref.watch(bikesProvider);
   return {
