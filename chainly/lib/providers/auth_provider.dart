@@ -8,12 +8,10 @@ final authServiceProvider = Provider<AuthService>((ref) {
   return getIt<AuthService>();
 });
 
-/// Current User Provider
 final currentUserProvider = Provider<User?>((ref) {
   return ref.watch(authServiceProvider).currentUser;
 });
 
-/// Is Logged In Provider
 final isLoggedInProvider = Provider<bool>((ref) {
   return ref.watch(currentUserProvider) != null;
 });
