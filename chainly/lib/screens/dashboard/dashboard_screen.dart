@@ -78,8 +78,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with WidgetsB
       debugPrint('Maintenance Record: id=${m.id}, title=${m.title}, bikeId=${m.bikeId}');
     }
     
-    // Get active bike (first bike or null)
-    final activeBike = bikesState.bikes.isNotEmpty ? bikesState.bikes.first : null;
+    // Get bike with highest total mileage (most ridden)
+    Bike? activeBike;
+    if (bikesState.bikes.isNotEmpty) {
+      activeBike = bikesState.bikes.reduce((a, b) => 
+        (a.totalMileage ?? 0) > (b.totalMileage ?? 0) ? a : b
+      );
+    }
     
     if (activeBike != null) {
       debugPrint('Dashboard - Active Bike ID: ${activeBike.id}');
@@ -88,10 +93,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with WidgetsB
     
     // Get last maintenance - show most recent regardless of bike if none match
     List<Maintenance> lastMaintenance;
-    if (activeBike != null && maintenanceState.records.any((m) => m.bikeId == activeBike.id)) {
+    final activeBikeId = activeBike?.id;
+    if (activeBikeId != null && 
+        maintenanceState.records.any((m) => m.bikeId == activeBikeId)) {
       // Filter by active bike if there are matching records
       lastMaintenance = maintenanceState.records
-          .where((m) => m.bikeId == activeBike.id)
+          .where((m) => m.bikeId == activeBikeId)
           .toList()
         ..sort((a, b) => b.date.compareTo(a.date));
     } else {
