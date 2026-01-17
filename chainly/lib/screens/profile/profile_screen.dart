@@ -4,7 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../utils/theme.dart';
 import '../../utils/routes.dart';
 import '../../widgets/custom_app_header.dart';
-import '../../providers/bike_provider.dart';
+import '../../providers/providers.dart';
 import '../../models/bike.dart';
 
 /// Profile Screen
@@ -16,6 +16,18 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final bikesState = ref.watch(bikesNotifierProvider);
     final bikes = bikesState.bikes;
+    final maintenanceState = ref.watch(maintenanceNotifierProvider);
+    final remindersState = ref.watch(remindersNotifierProvider);
+    
+    // Get user info from Supabase auth
+    final user = Supabase.instance.client.auth.currentUser;
+    final String fullName = user?.userMetadata?['full_name'] ?? 'Cyclist';
+    final String email = user?.email ?? 'No email';
+    
+    // Calculate stats
+    final totalBikes = bikes.length;
+    final totalMaintenance = maintenanceState.records.length;
+    final activeReminders = remindersState.reminders.where((r) => r.isEnabled).length;
     
     return Scaffold(
       body: SafeArea(
@@ -31,7 +43,7 @@ class ProfileScreen extends ConsumerWidget {
               const SizedBox(height: 24),
 
               // Profile Card
-              _buildProfileCard(),
+              _buildProfileCard(fullName, email),
               const SizedBox(height: 24),
 
               // My Bikes Section
@@ -39,7 +51,7 @@ class ProfileScreen extends ConsumerWidget {
               const SizedBox(height: 24),
 
               // Stats Overview
-              _buildStatsOverview(),
+              _buildStatsOverview(totalBikes, totalMaintenance, activeReminders),
               const SizedBox(height: 24),
 
               // Settings Section
@@ -56,7 +68,15 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildProfileCard() {
+  Widget _buildProfileCard(String fullName, String email) {
+    // Generate initials from full name
+    String getInitials(String name) {
+      final parts = name.trim().split(' ');
+      if (parts.isEmpty) return 'C';
+      if (parts.length == 1) return parts[0][0].toUpperCase();
+      return '${parts[0][0]}${parts[parts.length - 1][0]}'.toUpperCase();
+    }
+    
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -77,7 +97,7 @@ class ProfileScreen extends ConsumerWidget {
             ),
             child: Center(
               child: Text(
-                'JD',
+                getInitials(fullName),
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
@@ -91,9 +111,9 @@ class ProfileScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'John Doe',
-                  style: TextStyle(
+                Text(
+                  fullName,
+                  style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
@@ -101,7 +121,7 @@ class ProfileScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'john.doe@email.com',
+                  email,
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.white.withOpacity(0.8),
@@ -314,7 +334,7 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatsOverview() {
+  Widget _buildStatsOverview(int totalBikes, int totalMaintenance, int activeReminders) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -339,21 +359,21 @@ class ProfileScreen extends ConsumerWidget {
             children: [
               _buildStatItem(
                 icon: Icons.pedal_bike,
-                value: '2',
+                value: '$totalBikes',
                 unit: '',
                 label: 'Total Bikes',
               ),
               _buildStatDivider(),
               _buildStatItem(
                 icon: Icons.build,
-                value: '47',
+                value: '$totalMaintenance',
                 unit: '',
                 label: 'Maintenance',
               ),
               _buildStatDivider(),
               _buildStatItem(
                 icon: Icons.notifications_active,
-                value: '8',
+                value: '$activeReminders',
                 unit: '',
                 label: 'Active Reminders',
               ),
