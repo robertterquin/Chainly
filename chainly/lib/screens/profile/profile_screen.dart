@@ -99,7 +99,7 @@ class ProfileScreen extends ConsumerWidget {
               child: Text(
                 getInitials(fullName),
                 style: TextStyle(
-                  fontSize: 28,
+                  fontSize: 29,
                   fontWeight: FontWeight.bold,
                   color: ChainlyTheme.primaryColor,
                 ),
@@ -114,7 +114,7 @@ class ProfileScreen extends ConsumerWidget {
                 Text(
                   fullName,
                   style: const TextStyle(
-                    fontSize: 22,
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
