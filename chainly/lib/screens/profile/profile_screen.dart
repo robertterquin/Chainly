@@ -148,15 +148,14 @@ class ProfileScreen extends ConsumerWidget {
             ),
           ),
           GestureDetector(
-            onTap: () async {
-              await Navigator.push(
+            onTap: () {
+              Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => const EditProfileScreen(),
                 ),
               );
-              // Refresh profile data after returning from edit screen
-              ref.read(bikesNotifierProvider.notifier).loadBikes();
+              // Profile will automatically rebuild when returning, reading fresh user data from Supabase auth
             },
             child: Container(
               padding: const EdgeInsets.all(10),
