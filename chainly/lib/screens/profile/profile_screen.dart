@@ -6,6 +6,7 @@ import '../../utils/routes.dart';
 import '../../widgets/custom_app_header.dart';
 import '../../providers/providers.dart';
 import '../../models/bike.dart';
+import 'edit_profile_screen.dart';
 
 /// Profile Screen
 /// Shows user info, bike info, settings access, and logout option
@@ -43,7 +44,7 @@ class ProfileScreen extends ConsumerWidget {
               const SizedBox(height: 24),
 
               // Profile Card
-              _buildProfileCard(fullName, email),
+              _buildProfileCard(context, ref, fullName, email),
               const SizedBox(height: 24),
 
               // My Bikes Section
@@ -68,7 +69,7 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildProfileCard(String fullName, String email) {
+  Widget _buildProfileCard(BuildContext context, WidgetRef ref, String fullName, String email) {
     // Generate initials from full name
     String getInitials(String name) {
       final parts = name.trim().split(' ');
@@ -146,16 +147,28 @@ class ProfileScreen extends ConsumerWidget {
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(ChainlyTheme.radiusSmall),
-            ),
-            child: const Icon(
-              Icons.edit_outlined,
-              color: Colors.white,
-              size: 20,
+          GestureDetector(
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const EditProfileScreen(),
+                ),
+              );
+              // Refresh profile data after returning from edit screen
+              ref.read(bikesNotifierProvider.notifier).loadBikes();
+            },
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(ChainlyTheme.radiusSmall),
+              ),
+              child: const Icon(
+                Icons.edit_outlined,
+                color: Colors.white,
+                size: 20,
+              ),
             ),
           ),
         ],
