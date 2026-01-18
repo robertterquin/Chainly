@@ -10,11 +10,16 @@ import 'edit_profile_screen.dart';
 
 /// Profile Screen
 /// Shows user info, bike info, settings access, and logout option
-class ProfileScreen extends ConsumerWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  @override
+  Widget build(BuildContext context) {
     final bikesState = ref.watch(bikesNotifierProvider);
     final bikes = bikesState.bikes;
     final maintenanceState = ref.watch(maintenanceNotifierProvider);
@@ -78,6 +83,10 @@ class ProfileScreen extends ConsumerWidget {
       return '${parts[0][0]}${parts[parts.length - 1][0]}'.toUpperCase();
     }
     
+    // Get avatar URL from user metadata
+    final user = Supabase.instance.client.auth.currentUser;
+    final avatarUrl = user?.userMetadata?['avatar_url'] as String?;
+    
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -96,15 +105,34 @@ class ProfileScreen extends ConsumerWidget {
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white, width: 3),
             ),
-            child: Center(
-              child: Text(
-                getInitials(fullName),
-                style: TextStyle(
-                  fontSize: 29,
-                  fontWeight: FontWeight.bold,
-                  color: ChainlyTheme.primaryColor,
-                ),
-              ),
+            child: ClipOval(
+              child: avatarUrl != null
+                  ? Image.network(
+                      avatarUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Center(
+                          child: Text(
+                            getInitials(fullName),
+                            style: TextStyle(
+                              fontSize: 29,
+                              fontWeight: FontWeight.bold,
+                              color: ChainlyTheme.primaryColor,
+                            ),
+                          ),
+                        );
+                      },
+                    )
+                  : Center(
+                      child: Text(
+                        getInitials(fullName),
+                        style: TextStyle(
+                          fontSize: 29,
+                          fontWeight: FontWeight.bold,
+                          color: ChainlyTheme.primaryColor,
+                        ),
+                      ),
+                    ),
             ),
           ),
           const SizedBox(width: 16),
@@ -148,14 +176,19 @@ class ProfileScreen extends ConsumerWidget {
             ),
           ),
           GestureDetector(
-            onTap: () {
-              Navigator.push(
+            onTap: () async {
+              await Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => const EditProfileScreen(),
                 ),
               );
-              // Profile will automatically rebuild when returning, reading fresh user data from Supabase auth
+              // Refresh the profile screen to show updated data
+              if (mounted) {
+                setState(() {
+                  // This will trigger a rebuild and re-fetch user data from Supabase
+                });
+              }
             },
             child: Container(
               padding: const EdgeInsets.all(10),
