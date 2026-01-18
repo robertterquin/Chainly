@@ -135,7 +135,7 @@ class ProfileScreen extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Text(
-                    'Pro Cyclist 🚴',
+                    'Pro Cyclist',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 12,

@@ -139,7 +139,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with WidgetsB
               // Header
               CustomAppHeader(
                 title: 'Dashboard',
-                greeting: '${getGreeting()}, $greetingName 👋',
+                greeting: '${getGreeting()}, $greetingName',
                 action: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
