@@ -61,7 +61,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               const SizedBox(height: 24),
 
               // Settings Section
-              _buildSettingsSection(),
+              _buildSettingsSection(context),
               const SizedBox(height: 24),
 
               // Logout Button
@@ -481,7 +481,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  Widget _buildSettingsSection() {
+  Widget _buildSettingsSection(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -498,6 +498,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           icon: Icons.notifications_outlined,
           title: 'Notifications',
           subtitle: 'Maintenance & ride reminders',
+          onTap: () => AppRoutes.navigateTo(context, AppRoutes.notificationSettings),
         ),
         _buildSettingsItem(
           icon: Icons.palette_outlined,
@@ -527,53 +528,57 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     required IconData icon,
     required String title,
     required String subtitle,
+    VoidCallback? onTap,
   }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: ChainlyTheme.surfaceColor,
-        borderRadius: BorderRadius.circular(ChainlyTheme.radiusMedium),
-        boxShadow: ChainlyTheme.cardShadow,
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: ChainlyTheme.primaryColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(ChainlyTheme.radiusSmall),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: ChainlyTheme.surfaceColor,
+          borderRadius: BorderRadius.circular(ChainlyTheme.radiusMedium),
+          boxShadow: ChainlyTheme.cardShadow,
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: ChainlyTheme.primaryColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(ChainlyTheme.radiusSmall),
+              ),
+              child: Icon(icon, color: ChainlyTheme.primaryColor, size: 22),
             ),
-            child: Icon(icon, color: ChainlyTheme.primaryColor, size: 22),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: ChainlyTheme.textPrimary,
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: ChainlyTheme.textPrimary,
+                    ),
                   ),
-                ),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: ChainlyTheme.textSecondary,
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: ChainlyTheme.textSecondary,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          Icon(
-            Icons.chevron_right,
-            color: ChainlyTheme.textSecondary,
-          ),
-        ],
+            Icon(
+              Icons.chevron_right,
+              color: ChainlyTheme.textSecondary,
+            ),
+          ],
+        ),
       ),
     );
   }

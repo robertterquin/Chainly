@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/di/service_locator.dart';
 import '../../services/reminder_service.dart';
+import '../../services/notification_service.dart';
 import '../../models/reminder.dart';
 
 /// Reminder Service Provider
@@ -81,6 +82,11 @@ class RemindersNotifier extends StateNotifier<RemindersState> {
     try {
       final newReminder = await _reminderService.createReminder(reminder);
       state = state.copyWith(reminders: [newReminder, ...state.reminders]);
+      
+      // Schedule notification for the new reminder
+      if (newReminder.isEnabled && newReminder.dueDate != null) {
+        await NotificationService().scheduleReminderNotification(newReminder);
+      }
     } catch (e) {
       state = state.copyWith(error: e.toString());
       rethrow;
@@ -94,6 +100,12 @@ class RemindersNotifier extends StateNotifier<RemindersState> {
         return r.id == reminder.id ? updated : r;
       }).toList();
       state = state.copyWith(reminders: reminders);
+      
+      // Update scheduled notification
+      await NotificationService().cancelReminderNotification(updated);
+      if (updated.isEnabled && updated.dueDate != null) {
+        await NotificationService().scheduleReminderNotification(updated);
+      }
     } catch (e) {
       state = state.copyWith(error: e.toString());
       rethrow;
@@ -107,6 +119,13 @@ class RemindersNotifier extends StateNotifier<RemindersState> {
         return r.id == id ? updated : r;
       }).toList();
       state = state.copyWith(reminders: reminders);
+      
+      // Update notification based on enabled state
+      if (updated.isEnabled && updated.dueDate != null) {
+        await NotificationService().scheduleReminderNotification(updated);
+      } else {
+        await NotificationService().cancelReminderNotification(updated);
+      }
     } catch (e) {
       state = state.copyWith(error: e.toString());
       rethrow;
@@ -120,6 +139,12 @@ class RemindersNotifier extends StateNotifier<RemindersState> {
         return r.id == id ? updated : r;
       }).toList();
       state = state.copyWith(reminders: reminders);
+      
+      // Reschedule notification with new date
+      await NotificationService().cancelReminderNotification(updated);
+      if (updated.isEnabled && updated.dueDate != null) {
+        await NotificationService().scheduleReminderNotification(updated);
+      }
     } catch (e) {
       state = state.copyWith(error: e.toString());
       rethrow;
@@ -128,6 +153,13 @@ class RemindersNotifier extends StateNotifier<RemindersState> {
 
   Future<void> deleteReminder(String id) async {
     try {
+      // Cancel notification before deleting
+      final reminderToDelete = state.reminders.firstWhere(
+        (r) => r.id == id,
+        orElse: () => throw Exception('Reminder not found'),
+      );
+      await NotificationService().cancelReminderNotification(reminderToDelete);
+      
       await _reminderService.deleteReminder(id);
       final reminders = state.reminders.where((r) => r.id != id).toList();
       state = state.copyWith(reminders: reminders);

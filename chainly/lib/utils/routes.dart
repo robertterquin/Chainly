@@ -5,6 +5,8 @@ import '../screens/auth/login_screen.dart';
 import '../screens/auth/register_screen.dart';
 import '../screens/auth/forgot_password_screen.dart';
 import '../screens/main/main_navigation_screen.dart';
+import '../screens/profile/notification_settings_screen.dart';
+import '../screens/notifications/notifications_history_screen.dart';
 
 /// Named routes for the Chainly app
 class AppRoutes {
@@ -17,6 +19,8 @@ class AppRoutes {
   static const String dashboard = '/dashboard';
   static const String onboarding = '/onboarding';
   static const String main = '/main';
+  static const String notificationSettings = '/notification-settings';
+  static const String notificationsHistory = '/notifications-history';
 
   // Route map
   static Map<String, WidgetBuilder> get routes => {
@@ -26,6 +30,8 @@ class AppRoutes {
         register: (context) => const RegisterScreen(),
         forgotPassword: (context) => const ForgotPasswordScreen(),
         main: (context) => const MainNavigationScreen(),
+        notificationSettings: (context) => const NotificationSettingsScreen(),
+        notificationsHistory: (context) => const NotificationsHistoryScreen(),
       };
 
   // Navigation helpers

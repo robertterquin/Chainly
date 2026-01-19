@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../utils/theme.dart';
+import '../../utils/routes.dart';
 import '../../widgets/custom_app_header.dart';
 import '../../providers/providers.dart';
 import '../../models/models.dart';
@@ -140,18 +141,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with WidgetsB
               CustomAppHeader(
                 title: 'Dashboard',
                 greeting: '${getGreeting()}, $greetingName',
-                action: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: ChainlyTheme.surfaceColor,
-                    borderRadius: BorderRadius.circular(ChainlyTheme.radiusMedium),
-                    boxShadow: ChainlyTheme.cardShadow,
-                  ),
-                  child: Badge(
-                    label: Text('${upcomingReminders.length}'),
-                    child: Icon(
-                      Icons.notifications_outlined,
-                      color: ChainlyTheme.textPrimary,
+                action: GestureDetector(
+                  onTap: () => AppRoutes.navigateTo(context, AppRoutes.notificationsHistory),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: ChainlyTheme.surfaceColor,
+                      borderRadius: BorderRadius.circular(ChainlyTheme.radiusMedium),
+                      boxShadow: ChainlyTheme.cardShadow,
+                    ),
+                    child: Badge(
+                      label: Text('${upcomingReminders.length}'),
+                      child: Icon(
+                        Icons.notifications_outlined,
+                        color: ChainlyTheme.textPrimary,
+                      ),
                     ),
                   ),
                 ),

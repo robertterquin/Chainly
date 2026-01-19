@@ -51,6 +51,20 @@ dependencies:
   
   # Image picker for profile pictures
   image_picker: ^1.0.7
+  
+  # Push Notifications
+  firebase_core: ^3.8.0
+  firebase_messaging: ^15.1.5
+  flutter_local_notifications: ^18.0.1
+  
+  # Timezone for scheduling notifications
+  timezone: ^0.10.0
+  
+  # Shared preferences for notification settings
+  shared_preferences: ^2.3.3
+  
+  # Date formatting
+  intl: ^0.19.0
 
 dev_dependencies:
   flutter_test:
