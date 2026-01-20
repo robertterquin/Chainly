@@ -31,7 +31,6 @@ final userEmailProvider = Provider<String>((ref) {
   return ref.watch(authServiceProvider).email;
 });
 
-/// Auth State Notifier for login/logout actions
 class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
   final AuthService _authService;
 
