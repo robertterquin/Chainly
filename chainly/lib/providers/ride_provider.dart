@@ -183,3 +183,35 @@ final recentRidesProvider = Provider<List<Ride>>((ref) {
   final rides = ref.watch(ridesProvider);
   return rides.take(5).toList();
 });
+
+/// Total Distance by Bike Provider
+/// Returns a map of bikeId to total distance
+final totalDistanceByBikeProvider = Provider<Map<String, double>>((ref) {
+  final rides = ref.watch(ridesProvider);
+  final Map<String, double> mileageMap = {};
+  
+  for (final ride in rides) {
+    mileageMap[ride.bikeId] = (mileageMap[ride.bikeId] ?? 0) + ride.distance;
+  }
+  
+  return mileageMap;
+});
+
+/// Distance for Single Bike Provider
+final bikeDistanceProvider = Provider.family<double, String>((ref, bikeId) {
+  final rides = ref.watch(ridesProvider);
+  return rides
+      .where((r) => r.bikeId == bikeId)
+      .fold(0.0, (sum, r) => sum + r.distance);
+});
+
+/// Rides by Bike Provider
+final ridesByBikeProvider = Provider.family<List<Ride>, String>((ref, bikeId) {
+  final rides = ref.watch(ridesProvider);
+  return rides.where((r) => r.bikeId == bikeId).toList();
+});
+
+/// Recent Rides by Bike Provider (last 5)
+final recentRidesByBikeProvider = Provider.family<List<Ride>, String>((ref, bikeId) {
+  return ref.watch(ridesByBikeProvider(bikeId)).take(5).toList();
+});

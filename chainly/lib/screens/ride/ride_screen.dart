@@ -4,6 +4,8 @@ import '../../utils/theme.dart';
 import '../../widgets/custom_app_header.dart';
 import '../../providers/providers.dart';
 import '../../models/ride.dart';
+import '../../models/reminder.dart';
+import '../../services/notification_service.dart';
 
 /// Ride Screen
 /// Manually record ride details to calculate bike usage and trigger maintenance reminders
@@ -702,16 +704,50 @@ class RideScreen extends ConsumerWidget {
 
                       try {
                         await ref.read(ridesNotifierProvider.notifier).addRide(newRide);
-                        // Refresh bikes to update mileage in dashboard
-                        await ref.read(bikesNotifierProvider.notifier).loadBikes();
+                        
+                        // Update bike mileage
+                        await ref.read(bikesNotifierProvider.notifier).updateMileage(selectedBikeId!, distance);
+                        
+                        // Get the updated bike mileage
+                        final updatedMileage = ref.read(bikeMileageProvider(selectedBikeId!));
+                        final bikeName = bikeNames[selectedBikeId!] ?? 'Your bike';
+                        
+                        // Check for usage-based reminders that are now due
+                        final dueReminders = ref.read(dueUsageRemindersProvider((bikeId: selectedBikeId!, mileage: updatedMileage)));
+                        
                         if (context.mounted) {
                           Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: const Text('Ride added successfully!'),
-                              backgroundColor: ChainlyTheme.successColor,
-                            ),
-                          );
+                          
+                          if (dueReminders.isNotEmpty) {
+                            // Show notification for due reminders
+                            if (dueReminders.length == 1) {
+                              await NotificationService().showMileageReminderNotification(
+                                reminderTitle: dueReminders.first.title,
+                                bikeName: bikeName,
+                                currentMileage: updatedMileage,
+                                intervalDistance: dueReminders.first.intervalDistance ?? 0,
+                                reminderId: dueReminders.first.id,
+                              );
+                            } else {
+                              await NotificationService().showMultipleMileageRemindersNotification(
+                                bikeName: bikeName,
+                                reminderCount: dueReminders.length,
+                                currentMileage: updatedMileage,
+                              );
+                            }
+                            
+                            // Show dialog about due reminders
+                            if (context.mounted) {
+                              _showDueRemindersDialog(context, dueReminders, bikeName, updatedMileage);
+                            }
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Ride added! Total mileage: ${updatedMileage.toStringAsFixed(1)} km'),
+                                backgroundColor: ChainlyTheme.successColor,
+                              ),
+                            );
+                          }
                         }
                       } catch (e) {
                         if (context.mounted) {
@@ -789,5 +825,129 @@ class RideScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  void _showDueRemindersDialog(BuildContext context, List<Reminder> dueReminders, String bikeName, double currentMileage) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.notifications_active, color: ChainlyTheme.warningColor),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                'Maintenance Due!',
+                style: TextStyle(fontSize: 18),
+              ),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '$bikeName has reached ${currentMileage.toStringAsFixed(1)} km.',
+                style: TextStyle(
+                  color: ChainlyTheme.textSecondary,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'The following maintenance tasks are now due:',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: ChainlyTheme.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ...dueReminders.map((reminder) => Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: ChainlyTheme.warningColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: ChainlyTheme.warningColor.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _getCategoryIcon(reminder.category),
+                      color: ChainlyTheme.warningColor,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            reminder.title,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: ChainlyTheme.textPrimary,
+                            ),
+                          ),
+                          if (reminder.intervalDistance != null)
+                            Text(
+                              'Every ${reminder.intervalDistance!.toStringAsFixed(0)} km',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: ChainlyTheme.textSecondary,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              )),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Later'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Navigate to maintenance hub
+              // The user can mark reminders as complete there
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: ChainlyTheme.primaryColor,
+            ),
+            child: const Text(
+              'View Reminders',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _getCategoryIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'chain':
+        return Icons.link;
+      case 'brakes':
+        return Icons.settings;
+      case 'tires':
+        return Icons.tire_repair;
+      case 'service':
+        return Icons.clean_hands;
+      case 'wash':
+        return Icons.water_drop;
+      default:
+        return Icons.build;
+    }
   }
 }

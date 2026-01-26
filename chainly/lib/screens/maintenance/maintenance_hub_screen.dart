@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../models/bike.dart';
 import '../../models/maintenance.dart';
 import '../../models/reminder.dart';
 import '../../providers/providers.dart';
 import '../../utils/theme.dart';
+import '../../utils/maintenance_recommendations.dart';
 import '../../widgets/custom_app_header.dart';
 
 /// Unified Maintenance Hub Screen
@@ -430,24 +432,37 @@ class _RemindersSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final remindersState = ref.watch(remindersNotifierProvider);
     final bikeNames = ref.watch(bikeNamesMapProvider);
+    final bikeMileageMap = ref.watch(bikeMileageMapProvider);
     
-    // Calculate stats
+    // Calculate stats with mileage awareness
     final activeReminders = remindersState.reminders.where((r) => r.isEnabled).toList();
     final now = DateTime.now();
-    final dueSoon = activeReminders.where((r) {
-      if (r.type == ReminderType.timeBased && r.dueDate != null) {
-        return r.dueDate!.isAfter(now) && r.dueDate!.difference(now).inDays <= 7;
+    
+    // Count due soon (time-based: within 7 days, usage-based: within 10% of interval)
+    int dueSoon = 0;
+    int overdue = 0;
+    
+    for (final r in activeReminders) {
+      final currentMileage = bikeMileageMap[r.bikeId] ?? 0.0;
+      final status = r.getStatus(currentMileage);
+      
+      if (status == ReminderStatus.overdue) {
+        overdue++;
+      } else if (status == ReminderStatus.dueSoon) {
+        dueSoon++;
       }
-      return false;
-    }).length;
-    final overdue = activeReminders.where((r) => r.isOverdue).length;
+    }
 
-    // Get upcoming reminders (overdue + due soon)
+    // Get upcoming reminders (overdue + due soon + usage-based that need attention)
     final upcomingReminders = activeReminders.where((r) {
+      final currentMileage = bikeMileageMap[r.bikeId] ?? 0.0;
+      final status = r.getStatus(currentMileage);
+      
       if (r.type == ReminderType.timeBased && r.dueDate != null) {
         return r.dueDate!.isBefore(now.add(const Duration(days: 7)));
       }
-      return true; // Include usage-based reminders
+      // Include usage-based reminders that are due or due soon
+      return status == ReminderStatus.overdue || status == ReminderStatus.dueSoon;
     }).take(5).toList();
 
     if (remindersState.isLoading) {
@@ -488,13 +503,17 @@ class _RemindersSection extends ConsumerWidget {
 
         // Active Reminders Stats
         _buildActiveRemindersCard(activeReminders.length, dueSoon, overdue),
+        const SizedBox(height: 16),
+
+        // Recommended Reminders Section
+        _RecommendedRemindersSection(),
         const SizedBox(height: 20),
 
         // Upcoming Reminders
         if (upcomingReminders.isEmpty)
           _buildEmptyState()
         else
-          _buildUpcomingReminders(upcomingReminders, bikeNames, ref),
+          _buildUpcomingReminders(upcomingReminders, bikeNames, bikeMileageMap, ref, context),
       ],
     );
   }
@@ -618,7 +637,7 @@ class _RemindersSection extends ConsumerWidget {
     );
   }
 
-  Widget _buildUpcomingReminders(List<dynamic> reminders, Map<String, String> bikeNames, WidgetRef ref) {
+  Widget _buildUpcomingReminders(List<dynamic> reminders, Map<String, String> bikeNames, Map<String, double> bikeMileageMap, WidgetRef ref, BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -633,12 +652,15 @@ class _RemindersSection extends ConsumerWidget {
         const SizedBox(height: 12),
         ...reminders.map((reminder) {
           final bikeName = bikeNames[reminder.bikeId] ?? 'Unknown Bike';
+          final currentMileage = bikeMileageMap[reminder.bikeId] ?? 0.0;
           return Padding(
             padding: const EdgeInsets.only(bottom: 10),
             child: _buildReminderCard(
               reminder: reminder,
               bikeName: bikeName,
+              currentMileage: currentMileage,
               ref: ref,
+              context: context,
             ),
           );
         }),
@@ -649,12 +671,20 @@ class _RemindersSection extends ConsumerWidget {
   Widget _buildReminderCard({
     required dynamic reminder,
     required String bikeName,
+    required double currentMileage,
     required WidgetRef ref,
+    required BuildContext context,
   }) {
-    final isOverdue = reminder.isOverdue;
+    // Get status using current bike mileage
+    final status = reminder.getStatus(currentMileage);
+    final isOverdue = status == ReminderStatus.overdue;
+    final isDueSoon = status == ReminderStatus.dueSoon;
+    
     final statusColor = isOverdue 
         ? ChainlyTheme.errorColor 
-        : ChainlyTheme.warningColor;
+        : isDueSoon 
+            ? ChainlyTheme.warningColor
+            : ChainlyTheme.primaryColor;
     
     // Get icon based on category
     IconData icon = Icons.build;
@@ -671,33 +701,15 @@ class _RemindersSection extends ConsumerWidget {
       case 'service':
         icon = Icons.clean_hands;
         break;
+      case 'wash':
+        icon = Icons.water_drop;
+        break;
       default:
         icon = Icons.build;
     }
 
-    // Get due info string
-    String dueInfo;
-    if (reminder.type == ReminderType.timeBased && reminder.dueDate != null) {
-      final days = reminder.dueDate!.difference(DateTime.now()).inDays;
-      if (days < 0) {
-        dueInfo = 'Overdue by ${-days} days';
-      } else if (days == 0) {
-        dueInfo = 'Due today';
-      } else if (days == 1) {
-        dueInfo = 'Due tomorrow';
-      } else {
-        dueInfo = 'Due in $days days';
-      }
-    } else if (reminder.type == ReminderType.usageBased) {
-      // For usage-based, we'd need current bike mileage - for now show interval
-      if (reminder.intervalDistance != null) {
-        dueInfo = '${reminder.intervalDistance!.toStringAsFixed(0)} km interval';
-      } else {
-        dueInfo = 'Usage-based';
-      }
-    } else {
-      dueInfo = 'No due date';
-    }
+    // Get due info string using the model's method
+    String dueInfo = reminder.getRemainingString(currentMileage);
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -707,7 +719,9 @@ class _RemindersSection extends ConsumerWidget {
         boxShadow: ChainlyTheme.cardShadow,
         border: isOverdue
             ? Border.all(color: ChainlyTheme.errorColor.withValues(alpha: 0.3), width: 1.5)
-            : null,
+            : isDueSoon
+                ? Border.all(color: ChainlyTheme.warningColor.withValues(alpha: 0.3), width: 1.5)
+                : null,
       ),
       child: Row(
         children: [
@@ -724,13 +738,39 @@ class _RemindersSection extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  reminder.title,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: ChainlyTheme.textPrimary,
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        reminder.title,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: ChainlyTheme.textPrimary,
+                        ),
+                      ),
+                    ),
+                    // Show type badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: reminder.type == ReminderType.usageBased 
+                            ? ChainlyTheme.primaryColor.withValues(alpha: 0.1)
+                            : Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        reminder.type == ReminderType.usageBased ? 'KM' : 'TIME',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                          color: reminder.type == ReminderType.usageBased 
+                              ? ChainlyTheme.primaryColor 
+                              : ChainlyTheme.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 4),
                 Row(
@@ -771,17 +811,609 @@ class _RemindersSection extends ConsumerWidget {
               ],
             ),
           ),
-          Switch(
-            value: reminder.isEnabled,
-            onChanged: (value) async {
-              await ref.read(remindersNotifierProvider.notifier).toggleEnabled(reminder.id!);
+          PopupMenuButton(
+            icon: Icon(Icons.more_vert, size: 18, color: ChainlyTheme.textSecondary),
+            padding: EdgeInsets.zero,
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'complete',
+                child: Row(
+                  children: [
+                    Icon(Icons.check_circle_outline, size: 18, color: ChainlyTheme.successColor),
+                    const SizedBox(width: 8),
+                    const Text('Mark Complete'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'toggle',
+                child: Row(
+                  children: [
+                    Icon(
+                      reminder.isEnabled ? Icons.notifications_off : Icons.notifications_active,
+                      size: 18,
+                      color: ChainlyTheme.textSecondary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(reminder.isEnabled ? 'Disable' : 'Enable'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text('Delete', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+              ),
+            ],
+            onSelected: (value) async {
+              if (value == 'complete') {
+                await ref.read(remindersNotifierProvider.notifier).completeReminder(
+                  reminder.id!,
+                  currentBikeMileage: currentMileage,
+                );
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('${reminder.title} marked as complete${reminder.isRecurring ? " - will reset for next interval" : ""}'),
+                      backgroundColor: ChainlyTheme.successColor,
+                    ),
+                  );
+                }
+              } else if (value == 'toggle') {
+                await ref.read(remindersNotifierProvider.notifier).toggleEnabled(reminder.id!);
+              } else if (value == 'delete') {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Delete Reminder'),
+                    content: Text('Are you sure you want to delete "${reminder.title}"?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirm == true) {
+                  await ref.read(remindersNotifierProvider.notifier).deleteReminder(reminder.id!);
+                }
+              }
             },
-            activeColor: ChainlyTheme.primaryColor,
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
         ],
       ),
     );
+  }
+}
+
+// Recommended Reminders Section - Shows bikes that need maintenance reminders set up
+class _RecommendedRemindersSection extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bikesNeedingSetup = ref.watch(bikesNeedingReminderSetupProvider);
+    
+    if (bikesNeedingSetup.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    
+    // Get the first bike that needs the most attention
+    final mostUrgent = bikesNeedingSetup.first;
+    final missingRecs = ref.watch(missingRecommendationsProvider(mostUrgent.bike.id!));
+    
+    // Filter to show only overdue recommendations first
+    final overdueRecs = missingRecs.where((rec) => 
+      (mostUrgent.bike.totalMileage ?? 0) >= rec.intervalKm
+    ).toList();
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: ChainlyTheme.warningColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(ChainlyTheme.radiusMedium),
+        border: Border.all(
+          color: ChainlyTheme.warningColor.withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.lightbulb_outline,
+                color: ChainlyTheme.warningColor,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Recommended for ${mostUrgent.bike.name}',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: ChainlyTheme.textPrimary,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: ChainlyTheme.warningColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${mostUrgent.bike.totalMileage?.toStringAsFixed(0) ?? 0} km',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            overdueRecs.isNotEmpty 
+                ? '${overdueRecs.length} maintenance tasks should already be set up based on your mileage'
+                : '${missingRecs.length} recommended maintenance reminders available',
+            style: TextStyle(
+              fontSize: 12,
+              color: ChainlyTheme.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          
+          // Show first 3 overdue recommendations as chips
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: (overdueRecs.isNotEmpty ? overdueRecs : missingRecs)
+                .take(3)
+                .map((rec) => _buildRecommendationChip(context, ref, rec, mostUrgent.bike))
+                .toList(),
+          ),
+          
+          const SizedBox(height: 12),
+          
+          // Button to set up all recommendations
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _showSetupRecommendationsDialog(
+                context, 
+                ref, 
+                mostUrgent.bike, 
+                overdueRecs.isNotEmpty ? overdueRecs : missingRecs,
+              ),
+              icon: const Icon(Icons.add_alert, size: 18),
+              label: Text(
+                'Set Up ${overdueRecs.isNotEmpty ? overdueRecs.length : missingRecs.length} Reminders',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: ChainlyTheme.warningColor,
+                side: BorderSide(color: ChainlyTheme.warningColor),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildRecommendationChip(
+    BuildContext context, 
+    WidgetRef ref, 
+    MaintenanceRecommendation rec,
+    Bike bike,
+  ) {
+    final isOverdue = (bike.totalMileage ?? 0) >= rec.intervalKm;
+    
+    return GestureDetector(
+      onTap: () => _addSingleRecommendation(context, ref, rec, bike),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isOverdue 
+              ? ChainlyTheme.errorColor.withValues(alpha: 0.1)
+              : ChainlyTheme.surfaceColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isOverdue 
+                ? ChainlyTheme.errorColor.withValues(alpha: 0.3)
+                : Colors.grey.shade300,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              _getCategoryIcon(rec.category),
+              size: 14,
+              color: isOverdue ? ChainlyTheme.errorColor : ChainlyTheme.textSecondary,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              rec.title,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: isOverdue ? ChainlyTheme.errorColor : ChainlyTheme.textPrimary,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '(${rec.intervalKm.toStringAsFixed(0)} km)',
+              style: TextStyle(
+                fontSize: 10,
+                color: isOverdue ? ChainlyTheme.errorColor : ChainlyTheme.textSecondary,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              Icons.add_circle_outline,
+              size: 14,
+              color: isOverdue ? ChainlyTheme.errorColor : ChainlyTheme.primaryColor,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  IconData _getCategoryIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'chain':
+        return Icons.link;
+      case 'brakes':
+        return Icons.settings;
+      case 'tires':
+        return Icons.tire_repair;
+      case 'service':
+        return Icons.build;
+      default:
+        return Icons.handyman;
+    }
+  }
+  
+  Future<void> _addSingleRecommendation(
+    BuildContext context,
+    WidgetRef ref,
+    MaintenanceRecommendation rec,
+    Bike bike,
+  ) async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null || bike.id == null) return;
+    
+    final reminder = Reminder(
+      userId: userId,
+      bikeId: bike.id!,
+      title: rec.title,
+      description: rec.description,
+      type: ReminderType.usageBased,
+      intervalDistance: rec.intervalKm,
+      lastCompletedMileage: 0, // Start fresh
+      isRecurring: true,
+      category: rec.category,
+      priority: rec.priority,
+    );
+    
+    try {
+      await ref.read(remindersNotifierProvider.notifier).addReminder(reminder);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Added "${rec.title}" reminder for ${bike.name}'),
+            backgroundColor: ChainlyTheme.successColor,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to add reminder: $e')),
+        );
+      }
+    }
+  }
+  
+  void _showSetupRecommendationsDialog(
+    BuildContext context,
+    WidgetRef ref,
+    Bike bike,
+    List<MaintenanceRecommendation> recommendations,
+  ) {
+    final selectedRecs = <MaintenanceRecommendation>{...recommendations};
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          height: MediaQuery.of(context).size.height * 0.75,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              // Handle
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              
+              // Header
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.auto_fix_high, color: ChainlyTheme.primaryColor),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Set Up Reminders for ${bike.name}',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Based on your ${bike.totalMileage?.toStringAsFixed(0) ?? 0} km mileage, these maintenance tasks are recommended:',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: ChainlyTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Recommendations List
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: recommendations.length,
+                  itemBuilder: (context, index) {
+                    final rec = recommendations[index];
+                    final isSelected = selectedRecs.contains(rec);
+                    final isOverdue = (bike.totalMileage ?? 0) >= rec.intervalKm;
+                    final timesDue = getTimesDue(bike.totalMileage ?? 0, rec.intervalKm);
+                    
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      decoration: BoxDecoration(
+                        color: isSelected 
+                            ? ChainlyTheme.primaryColor.withValues(alpha: 0.05)
+                            : Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected 
+                              ? ChainlyTheme.primaryColor 
+                              : Colors.grey.shade300,
+                          width: isSelected ? 2 : 1,
+                        ),
+                      ),
+                      child: CheckboxListTile(
+                        value: isSelected,
+                        onChanged: (value) {
+                          setModalState(() {
+                            if (value == true) {
+                              selectedRecs.add(rec);
+                            } else {
+                              selectedRecs.remove(rec);
+                            }
+                          });
+                        },
+                        activeColor: ChainlyTheme.primaryColor,
+                        title: Row(
+                          children: [
+                            Icon(
+                              _getCategoryIcon(rec.category),
+                              size: 18,
+                              color: isOverdue ? ChainlyTheme.errorColor : ChainlyTheme.textPrimary,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                rec.title,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: isOverdue ? ChainlyTheme.errorColor : ChainlyTheme.textPrimary,
+                                ),
+                              ),
+                            ),
+                            if (isOverdue)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: ChainlyTheme.errorColor,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  timesDue > 1 ? '${timesDue}x overdue' : 'Overdue',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 4),
+                            Text(
+                              rec.description,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: ChainlyTheme.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Icon(Icons.repeat, size: 12, color: ChainlyTheme.primaryColor),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Every ${rec.intervalKm.toStringAsFixed(0)} km',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: ChainlyTheme.primaryColor,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Icon(
+                                  Icons.priority_high,
+                                  size: 12,
+                                  color: rec.priority == ReminderPriority.high 
+                                      ? ChainlyTheme.errorColor 
+                                      : ChainlyTheme.textSecondary,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  rec.priority.name.toUpperCase(),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                    color: rec.priority == ReminderPriority.high 
+                                        ? ChainlyTheme.errorColor 
+                                        : ChainlyTheme.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        controlAffinity: ListTileControlAffinity.leading,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              
+              // Action Buttons
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        child: const Text('Cancel'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton.icon(
+                        onPressed: selectedRecs.isEmpty 
+                            ? null 
+                            : () => _createSelectedReminders(context, ref, bike, selectedRecs.toList()),
+                        icon: const Icon(Icons.add_alert, color: Colors.white),
+                        label: Text(
+                          'Add ${selectedRecs.length} Reminder${selectedRecs.length != 1 ? 's' : ''}',
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: ChainlyTheme.primaryColor,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Future<void> _createSelectedReminders(
+    BuildContext context,
+    WidgetRef ref,
+    Bike bike,
+    List<MaintenanceRecommendation> recommendations,
+  ) async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null || bike.id == null) return;
+    
+    Navigator.pop(context);
+    
+    int successCount = 0;
+    int failCount = 0;
+    
+    for (final rec in recommendations) {
+      final reminder = Reminder(
+        userId: userId,
+        bikeId: bike.id!,
+        title: rec.title,
+        description: rec.description,
+        type: ReminderType.usageBased,
+        intervalDistance: rec.intervalKm,
+        lastCompletedMileage: 0, // Start fresh so they show as overdue
+        isRecurring: true,
+        category: rec.category,
+        priority: rec.priority,
+      );
+      
+      try {
+        await ref.read(remindersNotifierProvider.notifier).addReminder(reminder);
+        successCount++;
+      } catch (e) {
+        failCount++;
+      }
+    }
+    
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            failCount == 0
+                ? 'Added $successCount reminder${successCount != 1 ? 's' : ''} for ${bike.name}!'
+                : 'Added $successCount reminder${successCount != 1 ? 's' : ''}, $failCount failed',
+          ),
+          backgroundColor: failCount == 0 ? ChainlyTheme.successColor : ChainlyTheme.warningColor,
+        ),
+      );
+    }
   }
 }
 
@@ -1451,12 +2083,90 @@ class _ReminderForm extends StatefulWidget {
   State<_ReminderForm> createState() => _ReminderFormState();
 }
 
+/// Common maintenance presets with suggested intervals
+class _MaintenancePreset {
+  final String title;
+  final String description;
+  final String category;
+  final double? intervalKm;
+  final int? intervalDays;
+  final String priority;
+  
+  const _MaintenancePreset({
+    required this.title,
+    this.description = '',
+    required this.category,
+    this.intervalKm,
+    this.intervalDays,
+    this.priority = 'normal',
+  });
+}
+
+const _commonPresets = [
+  _MaintenancePreset(
+    title: 'Chain Lubrication',
+    description: 'Apply lubricant to chain',
+    category: 'chain',
+    intervalKm: 100,
+    priority: 'normal',
+  ),
+  _MaintenancePreset(
+    title: 'Chain Cleaning',
+    description: 'Deep clean the chain',
+    category: 'chain',
+    intervalKm: 300,
+    priority: 'normal',
+  ),
+  _MaintenancePreset(
+    title: 'Bike Wash',
+    description: 'Full bike cleaning',
+    category: 'service',
+    intervalKm: 200,
+    priority: 'low',
+  ),
+  _MaintenancePreset(
+    title: 'Tire Pressure Check',
+    description: 'Check and adjust tire pressure',
+    category: 'tires',
+    intervalKm: 150,
+    priority: 'normal',
+  ),
+  _MaintenancePreset(
+    title: 'Brake Inspection',
+    description: 'Check brake pads and cables',
+    category: 'brakes',
+    intervalKm: 500,
+    priority: 'high',
+  ),
+  _MaintenancePreset(
+    title: 'Full Service',
+    description: 'Comprehensive bike maintenance',
+    category: 'service',
+    intervalKm: 1000,
+    priority: 'high',
+  ),
+  _MaintenancePreset(
+    title: 'Chain Replacement',
+    description: 'Replace worn chain',
+    category: 'chain',
+    intervalKm: 3000,
+    priority: 'high',
+  ),
+  _MaintenancePreset(
+    title: 'Brake Pad Replacement',
+    description: 'Replace worn brake pads',
+    category: 'brakes',
+    intervalKm: 2000,
+    priority: 'high',
+  ),
+];
+
 class _ReminderFormState extends State<_ReminderForm> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _intervalDaysController = TextEditingController();
   final _intervalDistanceController = TextEditingController();
-  String _selectedType = 'time_based';
+  String _selectedType = 'usage_based'; // Default to usage-based for mileage tracking
   String _selectedCategory = 'chain';
   String _selectedPriority = 'normal';
   String? _selectedBikeId;
@@ -1472,6 +2182,23 @@ class _ReminderFormState extends State<_ReminderForm> {
     super.dispose();
   }
 
+  void _applyPreset(_MaintenancePreset preset) {
+    setState(() {
+      _titleController.text = preset.title;
+      _descriptionController.text = preset.description;
+      _selectedCategory = preset.category;
+      _selectedPriority = preset.priority;
+      
+      if (preset.intervalKm != null) {
+        _selectedType = 'usage_based';
+        _intervalDistanceController.text = preset.intervalKm!.toStringAsFixed(0);
+      } else if (preset.intervalDays != null) {
+        _selectedType = 'time_based';
+        _intervalDaysController.text = preset.intervalDays.toString();
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final bikeNames = widget.ref.read(bikeNamesMapProvider);
@@ -1480,6 +2207,40 @@ class _ReminderFormState extends State<_ReminderForm> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Quick Presets
+        Text(
+          'Quick Presets',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: ChainlyTheme.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 36,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: _commonPresets.length,
+            itemBuilder: (context, index) {
+              final preset = _commonPresets[index];
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ActionChip(
+                  label: Text(preset.title),
+                  onPressed: () => _applyPreset(preset),
+                  backgroundColor: ChainlyTheme.surfaceColor,
+                  labelStyle: TextStyle(
+                    fontSize: 12,
+                    color: ChainlyTheme.textPrimary,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 16),
+        
         TextField(
           controller: _titleController,
           decoration: InputDecoration(

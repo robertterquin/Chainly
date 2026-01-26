@@ -3,6 +3,9 @@ import '../../core/di/service_locator.dart';
 import '../../services/reminder_service.dart';
 import '../../services/notification_service.dart';
 import '../../models/reminder.dart';
+import '../../models/bike.dart';
+import '../../utils/maintenance_recommendations.dart';
+import 'bike_provider.dart';
 
 /// Reminder Service Provider
 final reminderServiceProvider = Provider<ReminderService>((ref) {
@@ -151,6 +154,44 @@ class RemindersNotifier extends StateNotifier<RemindersState> {
     }
   }
 
+  /// Complete a reminder (marks it as done, resets for recurring)
+  Future<void> completeReminder(String id, {double? currentBikeMileage}) async {
+    try {
+      final updated = await _reminderService.completeReminder(id, currentBikeMileage: currentBikeMileage);
+      final reminders = state.reminders.map((r) {
+        return r.id == id ? updated : r;
+      }).toList();
+      state = state.copyWith(reminders: reminders);
+      
+      // Update scheduled notification for recurring reminders
+      await NotificationService().cancelReminderNotification(updated);
+      if (updated.isEnabled && updated.dueDate != null && updated.isRecurring) {
+        await NotificationService().scheduleReminderNotification(updated);
+      }
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+      rethrow;
+    }
+  }
+
+  /// Get reminders that are due based on bike mileage
+  List<Reminder> getDueUsageReminders(String bikeId, double currentMileage) {
+    return state.reminders.where((r) {
+      if (!r.isEnabled || r.type != ReminderType.usageBased) return false;
+      if (r.bikeId != bikeId) return false;
+      if (r.intervalDistance == null) return false;
+      
+      final lastMileage = r.lastCompletedMileage ?? 0.0;
+      final kmSinceLast = currentMileage - lastMileage;
+      return kmSinceLast >= r.intervalDistance!;
+    }).toList();
+  }
+
+  /// Get reminders for a specific bike
+  List<Reminder> getRemindersByBike(String bikeId) {
+    return state.reminders.where((r) => r.bikeId == bikeId).toList();
+  }
+
   Future<void> deleteReminder(String id) async {
     try {
       // Cancel notification before deleting
@@ -248,4 +289,110 @@ final nextReminderProvider = Provider<Reminder?>((ref) {
     });
   
   return sorted.first;
+});
+
+/// Reminders by Bike Provider
+final remindersByBikeProvider = Provider.family<List<Reminder>, String>((ref, bikeId) {
+  final reminders = ref.watch(remindersProvider);
+  return reminders.where((r) => r.bikeId == bikeId).toList();
+});
+
+/// Usage-based Reminders by Bike Provider
+final usageRemindersByBikeProvider = Provider.family<List<Reminder>, String>((ref, bikeId) {
+  final reminders = ref.watch(remindersProvider);
+  return reminders.where((r) => 
+    r.bikeId == bikeId && 
+    r.type == ReminderType.usageBased && 
+    r.isEnabled
+  ).toList();
+});
+
+/// Due Usage Reminders Provider (takes bikeId and currentMileage)
+/// Returns reminders that are due based on current bike mileage
+final dueUsageRemindersProvider = Provider.family<List<Reminder>, ({String bikeId, double mileage})>((ref, params) {
+  final reminders = ref.watch(usageRemindersByBikeProvider(params.bikeId));
+  
+  return reminders.where((r) {
+    if (r.intervalDistance == null) return false;
+    final lastMileage = r.lastCompletedMileage ?? 0.0;
+    final kmSinceLast = params.mileage - lastMileage;
+    return kmSinceLast >= r.intervalDistance!;
+  }).toList();
+});
+
+/// Due Soon Usage Reminders Provider (within 10% of interval)
+final dueSoonUsageRemindersProvider = Provider.family<List<Reminder>, ({String bikeId, double mileage})>((ref, params) {
+  final reminders = ref.watch(usageRemindersByBikeProvider(params.bikeId));
+  
+  return reminders.where((r) {
+    if (r.intervalDistance == null) return false;
+    final lastMileage = r.lastCompletedMileage ?? 0.0;
+    final kmSinceLast = params.mileage - lastMileage;
+    final remaining = r.intervalDistance! - kmSinceLast;
+    // Due soon if within 10% of the interval
+    return remaining > 0 && remaining <= r.intervalDistance! * 0.1;
+  }).toList();
+});
+
+/// Get reminder status with current mileage
+final reminderStatusProvider = Provider.family<ReminderStatus, ({Reminder reminder, double? mileage})>((ref, params) {
+  return params.reminder.getStatus(params.mileage);
+});
+
+/// All overdue reminders (time-based + usage-based combined)
+final allOverdueRemindersProvider = Provider.family<List<Reminder>, Map<String, double>>((ref, bikeMileageMap) {
+  final reminders = ref.watch(remindersProvider);
+  
+  return reminders.where((r) {
+    if (!r.isEnabled) return false;
+    
+    if (r.type == ReminderType.timeBased) {
+      return r.isOverdue;
+    } else {
+      // Usage-based
+      final currentMileage = bikeMileageMap[r.bikeId] ?? 0.0;
+      return r.getStatus(currentMileage) == ReminderStatus.overdue;
+    }
+  }).toList();
+});
+
+/// Missing Recommendations Provider
+/// Returns maintenance recommendations that the user hasn't set up reminders for
+final missingRecommendationsProvider = Provider.family<List<MaintenanceRecommendation>, String>((ref, bikeId) {
+  final bikeReminders = ref.watch(remindersByBikeProvider(bikeId));
+  final bike = ref.watch(bikeByIdProvider(bikeId));
+  final bikeMileage = bike?.totalMileage ?? 0.0;
+  
+  final existingTitles = bikeReminders.map((r) => r.title).toList();
+  
+  return getMissingRecommendations(
+    bikeMileage: bikeMileage,
+    existingReminderTitles: existingTitles,
+  );
+});
+
+/// Bikes Needing Reminder Setup Provider
+/// Returns bikes that have significant mileage but missing recommended reminders
+final bikesNeedingReminderSetupProvider = Provider<List<({Bike bike, int missingCount, int overdueCount})>>((ref) {
+  final bikes = ref.watch(bikesProvider);
+  final List<({Bike bike, int missingCount, int overdueCount})> result = [];
+  
+  for (final bike in bikes) {
+    if (bike.id == null) continue;
+    
+    final missing = ref.watch(missingRecommendationsProvider(bike.id!));
+    final mileage = bike.totalMileage ?? 0.0;
+    
+    // Count how many recommendations would already be overdue
+    final overdueCount = missing.where((rec) => mileage >= rec.intervalKm).length;
+    
+    if (missing.isNotEmpty && mileage >= 50) { // Only suggest if bike has some mileage
+      result.add((bike: bike, missingCount: missing.length, overdueCount: overdueCount));
+    }
+  }
+  
+  // Sort by overdue count (most urgent first)
+  result.sort((a, b) => b.overdueCount.compareTo(a.overdueCount));
+  
+  return result;
 });

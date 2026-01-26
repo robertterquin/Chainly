@@ -189,4 +189,80 @@ class ReminderService {
 
     return response.length;
   }
+
+  /// Complete a reminder (for recurring, reset based on type)
+  Future<Reminder> completeReminder(String id, {double? currentBikeMileage}) async {
+    if (_userId == null) throw Exception('User not logged in');
+
+    final current = await getReminderById(id);
+    if (current == null) throw Exception('Reminder not found');
+
+    final now = DateTime.now();
+    Map<String, dynamic> updateData = {
+      'last_completed_date': now.toIso8601String(),
+      'updated_at': now.toIso8601String(),
+    };
+
+    // If usage-based, update last completed mileage
+    if (current.type == ReminderType.usageBased && currentBikeMileage != null) {
+      updateData['last_completed_mileage'] = currentBikeMileage;
+    }
+
+    // If recurring, calculate next due date
+    if (current.isRecurring) {
+      if (current.type == ReminderType.timeBased && current.intervalDays != null) {
+        final nextDueDate = now.add(Duration(days: current.intervalDays!));
+        updateData['due_date'] = nextDueDate.toIso8601String().split('T')[0];
+      }
+      // For usage-based, the status is calculated dynamically from mileage
+    }
+
+    final response = await _client
+        .from(_tableName)
+        .update(updateData)
+        .eq('id', id)
+        .eq('user_id', _userId!)
+        .select()
+        .single();
+
+    return Reminder.fromJson(response);
+  }
+
+  /// Get usage-based reminders for a specific bike that are due
+  Future<List<Reminder>> getDueUsageReminders(String bikeId, double currentMileage) async {
+    if (_userId == null) throw Exception('User not logged in');
+
+    final response = await _client
+        .from(_tableName)
+        .select()
+        .eq('user_id', _userId!)
+        .eq('bike_id', bikeId)
+        .eq('reminder_type', 'usage_based')
+        .eq('is_enabled', true);
+
+    final reminders = (response as List).map((json) => Reminder.fromJson(json)).toList();
+    
+    // Filter reminders that are due based on current mileage
+    return reminders.where((reminder) {
+      if (reminder.intervalDistance == null) return false;
+      final lastMileage = reminder.lastCompletedMileage ?? 0.0;
+      final kmSinceLast = currentMileage - lastMileage;
+      return kmSinceLast >= reminder.intervalDistance!;
+    }).toList();
+  }
+
+  /// Get all usage-based reminders for a specific bike
+  Future<List<Reminder>> getUsageRemindersByBike(String bikeId) async {
+    if (_userId == null) throw Exception('User not logged in');
+
+    final response = await _client
+        .from(_tableName)
+        .select()
+        .eq('user_id', _userId!)
+        .eq('bike_id', bikeId)
+        .eq('reminder_type', 'usage_based')
+        .eq('is_enabled', true);
+
+    return (response as List).map((json) => Reminder.fromJson(json)).toList();
+  }
 }

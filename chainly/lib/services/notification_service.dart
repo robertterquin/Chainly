@@ -333,4 +333,34 @@ class NotificationService {
     if (kIsWeb) return;
     await _firebaseMessaging.unsubscribeFromTopic(topic);
   }
+
+  /// Show mileage-based maintenance reminder notification
+  Future<void> showMileageReminderNotification({
+    required String reminderTitle,
+    required String bikeName,
+    required double currentMileage,
+    required double intervalDistance,
+    String? reminderId,
+  }) async {
+    await showNotification(
+      title: '🔧 Maintenance Due: $reminderTitle',
+      body: '$bikeName has reached ${currentMileage.toStringAsFixed(0)} km. Time for maintenance every ${intervalDistance.toStringAsFixed(0)} km!',
+      payload: reminderId != null ? 'reminder:$reminderId' : null,
+      id: reminderId?.hashCode ?? DateTime.now().millisecondsSinceEpoch,
+    );
+  }
+
+  /// Show multiple mileage reminders due notification
+  Future<void> showMultipleMileageRemindersNotification({
+    required String bikeName,
+    required int reminderCount,
+    required double currentMileage,
+  }) async {
+    await showNotification(
+      title: '🚴 $reminderCount Maintenance Tasks Due!',
+      body: '$bikeName has reached ${currentMileage.toStringAsFixed(0)} km. Check your maintenance reminders.',
+      payload: 'reminders_due',
+      id: DateTime.now().millisecondsSinceEpoch,
+    );
+  }
 }

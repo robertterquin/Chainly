@@ -92,6 +92,34 @@ class BikesNotifier extends StateNotifier<BikesState> {
     }
   }
 
+  /// Update bike mileage (add distance to current total)
+  Future<void> updateMileage(String bikeId, double additionalDistance) async {
+    try {
+      await _bikeService.updateMileage(bikeId, additionalDistance);
+      // Update local state
+      final bikes = state.bikes.map((b) {
+        if (b.id == bikeId) {
+          final newMileage = (b.totalMileage ?? 0) + additionalDistance;
+          return b.copyWith(totalMileage: newMileage);
+        }
+        return b;
+      }).toList();
+      state = state.copyWith(bikes: bikes);
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
+      rethrow;
+    }
+  }
+
+  /// Get bike's current mileage
+  double getBikeMileage(String bikeId) {
+    final bike = state.bikes.firstWhere(
+      (b) => b.id == bikeId,
+      orElse: () => Bike(name: ''),
+    );
+    return bike.totalMileage ?? 0.0;
+  }
+
   void clearError() {
     state = state.copyWith(error: null);
   }
@@ -133,4 +161,19 @@ final bikesLoadingProvider = Provider<bool>((ref) {
 /// Bikes Error Provider
 final bikesErrorProvider = Provider<String?>((ref) {
   return ref.watch(bikesNotifierProvider).error;
+});
+
+/// Bike Mileage Map Provider (bikeId -> totalMileage)
+final bikeMileageMapProvider = Provider<Map<String, double>>((ref) {
+  final bikes = ref.watch(bikesProvider);
+  return {
+    for (var bike in bikes)
+      if (bike.id != null) bike.id!: (bike.totalMileage ?? 0.0)
+  };
+});
+
+/// Single Bike Mileage Provider
+final bikeMileageProvider = Provider.family<double, String>((ref, bikeId) {
+  final bike = ref.watch(bikeByIdProvider(bikeId));
+  return bike?.totalMileage ?? 0.0;
 });
