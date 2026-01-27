@@ -278,6 +278,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ...bikes.map((bike) => Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: _buildBikeCard(
+                  context: context,
+                  ref: ref,
+                  bike: bike,
                   name: bike.name,
                   type: bike.type ?? 'Bike',
                   brand: bike.brand,
@@ -292,6 +295,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Widget _buildBikeCard({
+    required BuildContext context,
+    required WidgetRef ref,
+    required Bike bike,
     required String name,
     required String type,
     String? brand,
@@ -370,9 +376,34 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ],
             ),
           ),
-          Icon(
-            Icons.chevron_right,
-            color: ChainlyTheme.textSecondary,
+          PopupMenuButton<String>(
+            icon: Icon(
+              Icons.more_vert,
+              color: ChainlyTheme.textSecondary,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            onSelected: (value) async {
+              if (value == 'delete') {
+                await _showDeleteBikeDialog(context, ref, bike);
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_outline, color: ChainlyTheme.errorColor, size: 20),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Delete Bike',
+                      style: TextStyle(color: ChainlyTheme.errorColor),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -812,5 +843,96 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _showDeleteBikeDialog(BuildContext context, WidgetRef ref, Bike bike) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: ChainlyTheme.errorColor, size: 28),
+            const SizedBox(width: 12),
+            const Text('Delete Bike'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Are you sure you want to delete "${bike.name}"?',
+              style: const TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: ChainlyTheme.errorColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: ChainlyTheme.errorColor, size: 20),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'This will also delete all associated maintenance records and reminders.',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: ChainlyTheme.errorColor,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && context.mounted) {
+      try {
+        await ref.read(bikesNotifierProvider.notifier).deleteBike(bike.id!);
+        
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${bike.name} deleted successfully'),
+              backgroundColor: ChainlyTheme.successColor,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to delete bike: ${e.toString()}'),
+              backgroundColor: ChainlyTheme.errorColor,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+        }
+      }
+    }
   }
 }
