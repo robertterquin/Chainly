@@ -436,9 +436,8 @@ class _RemindersSection extends ConsumerWidget {
     
     // Calculate stats with mileage awareness
     final activeReminders = remindersState.reminders.where((r) => r.isEnabled).toList();
-    final now = DateTime.now();
     
-    // Count due soon (time-based: within 7 days, usage-based: within 10% of interval)
+    // Count due soon and overdue
     int dueSoon = 0;
     int overdue = 0;
     
@@ -453,17 +452,23 @@ class _RemindersSection extends ConsumerWidget {
       }
     }
 
-    // Get upcoming reminders (overdue + due soon + usage-based that need attention)
-    final upcomingReminders = activeReminders.where((r) {
+    // Categorize all reminders by status
+    final overdueReminders = <dynamic>[];
+    final dueSoonReminders = <dynamic>[];
+    final upcomingReminders = <dynamic>[];
+    
+    for (final r in activeReminders) {
       final currentMileage = bikeMileageMap[r.bikeId] ?? 0.0;
       final status = r.getStatus(currentMileage);
       
-      if (r.type == ReminderType.timeBased && r.dueDate != null) {
-        return r.dueDate!.isBefore(now.add(const Duration(days: 7)));
+      if (status == ReminderStatus.overdue) {
+        overdueReminders.add(r);
+      } else if (status == ReminderStatus.dueSoon) {
+        dueSoonReminders.add(r);
+      } else {
+        upcomingReminders.add(r);
       }
-      // Include usage-based reminders that are due or due soon
-      return status == ReminderStatus.overdue || status == ReminderStatus.dueSoon;
-    }).take(5).toList();
+    }
 
     if (remindersState.isLoading) {
       return const Center(
@@ -509,11 +514,49 @@ class _RemindersSection extends ConsumerWidget {
         _RecommendedRemindersSection(),
         const SizedBox(height: 20),
 
-        // Upcoming Reminders
-        if (upcomingReminders.isEmpty)
+        // Show all reminders organized by status
+        if (activeReminders.isEmpty)
           _buildEmptyState()
-        else
-          _buildUpcomingReminders(upcomingReminders, bikeNames, bikeMileageMap, ref, context),
+        else ...[
+          // Overdue Section
+          if (overdueReminders.isNotEmpty)
+            _buildReminderGroup(
+              title: 'Overdue',
+              reminders: overdueReminders,
+              bikeNames: bikeNames,
+              bikeMileageMap: bikeMileageMap,
+              ref: ref,
+              context: context,
+              color: ChainlyTheme.errorColor,
+              icon: Icons.warning_amber_rounded,
+            ),
+          
+          // Due Soon Section  
+          if (dueSoonReminders.isNotEmpty)
+            _buildReminderGroup(
+              title: 'Due Soon',
+              reminders: dueSoonReminders,
+              bikeNames: bikeNames,
+              bikeMileageMap: bikeMileageMap,
+              ref: ref,
+              context: context,
+              color: ChainlyTheme.warningColor,
+              icon: Icons.schedule,
+            ),
+          
+          // Upcoming Section (not yet due)
+          if (upcomingReminders.isNotEmpty)
+            _buildReminderGroup(
+              title: 'Upcoming',
+              reminders: upcomingReminders,
+              bikeNames: bikeNames,
+              bikeMileageMap: bikeMileageMap,
+              ref: ref,
+              context: context,
+              color: ChainlyTheme.primaryColor,
+              icon: Icons.event_available,
+            ),
+        ],
       ],
     );
   }
@@ -637,19 +680,61 @@ class _RemindersSection extends ConsumerWidget {
     );
   }
 
-  Widget _buildUpcomingReminders(List<dynamic> reminders, Map<String, String> bikeNames, Map<String, double> bikeMileageMap, WidgetRef ref, BuildContext context) {
+  Widget _buildReminderGroup({
+    required String title,
+    required List<dynamic> reminders,
+    required Map<String, String> bikeNames,
+    required Map<String, double> bikeMileageMap,
+    required WidgetRef ref,
+    required BuildContext context,
+    required Color color,
+    required IconData icon,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Due Soon',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: ChainlyTheme.textPrimary,
+        // Section Header
+        Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: color, size: 16),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '${reminders.length}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 12),
+        // Reminder Cards
         ...reminders.map((reminder) {
           final bikeName = bikeNames[reminder.bikeId] ?? 'Unknown Bike';
           final currentMileage = bikeMileageMap[reminder.bikeId] ?? 0.0;
@@ -664,6 +749,7 @@ class _RemindersSection extends ConsumerWidget {
             ),
           );
         }),
+        const SizedBox(height: 16),
       ],
     );
   }
