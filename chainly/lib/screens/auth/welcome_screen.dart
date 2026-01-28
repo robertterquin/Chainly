@@ -43,7 +43,7 @@ class WelcomeScreen extends StatelessWidget {
                 ),
               ),
               const Spacer(flex: 3),
-              // Create account button
+              
               _buildPrimaryButton(
                 context,
                 text: 'Create an account',
