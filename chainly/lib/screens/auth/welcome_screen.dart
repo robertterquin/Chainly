@@ -19,12 +19,12 @@ class WelcomeScreen extends StatelessWidget {
               const Spacer(flex: 2),
               // Logo
               _buildLogo(),
-              const SizedBox(height: 32),
+              const SizedBox(height: 4),
               // App name
               const Text(
                 'Chainly',
                 style: TextStyle(
-                  fontSize: 42,
+                  fontSize: 40,
                   fontWeight: FontWeight.bold,
                   color: ChainlyTheme.primaryColor,
                   letterSpacing: -0.5,
@@ -67,13 +67,13 @@ class WelcomeScreen extends StatelessWidget {
   Widget _buildLogo() {
     return Image.asset(
       'assets/images/chainly_logo.png',
-      width: 220,
-      height: 220,
+      width: 280,
+      height: 280,
       fit: BoxFit.contain,
       errorBuilder: (context, error, stackTrace) {
         return Icon(
           Icons.directions_bike_rounded,
-          size: 220,
+          size: 280,
           color: ChainlyTheme.primaryColor,
         );
       },
