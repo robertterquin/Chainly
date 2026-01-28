@@ -20,7 +20,7 @@ class WelcomeScreen extends StatelessWidget {
               // Logo
               _buildLogo(),
               const SizedBox(height: 4),
-              // App name
+            
               const Text(
                 'Chainly',
                 style: TextStyle(
