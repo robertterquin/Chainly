@@ -16,11 +16,20 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
+  final GlobalKey<MaintenanceHubScreenState> _maintenanceKey = GlobalKey<MaintenanceHubScreenState>();
 
-  void _changeTab(int index) {
+  void _changeTab(int index, {bool scrollToMaintenance = false}) {
     setState(() {
       _currentIndex = index;
     });
+    
+    // If navigating to maintenance tab and should scroll to maintenance log
+    if (index == 1 && scrollToMaintenance) {
+      // Wait for the tab switch to complete, then scroll
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _maintenanceKey.currentState?.scrollToMaintenanceLog();
+      });
+    }
   }
 
   @override
@@ -30,7 +39,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         index: _currentIndex,
         children: [
           DashboardScreen(onTabChange: _changeTab),
-          const MaintenanceHubScreen(),
+          MaintenanceHubScreen(key: _maintenanceKey),
           const RideScreen(),
           const ProfileScreen(),
         ],

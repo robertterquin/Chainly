@@ -11,11 +11,39 @@ import '../../widgets/custom_app_header.dart';
 
 /// Unified Maintenance Hub Screen
 /// Combines reminders and maintenance logs in one scrollable view
-class MaintenanceHubScreen extends ConsumerWidget {
+class MaintenanceHubScreen extends ConsumerStatefulWidget {
   const MaintenanceHubScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  MaintenanceHubScreenState createState() => MaintenanceHubScreenState();
+}
+
+class MaintenanceHubScreenState extends ConsumerState<MaintenanceHubScreen> {
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey _maintenanceLogKey = GlobalKey();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  /// Scrolls to the Maintenance Log section
+  void scrollToMaintenanceLog() {
+    // Small delay to ensure the widget is built
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (_maintenanceLogKey.currentContext != null) {
+        Scrollable.ensureVisible(
+          _maintenanceLogKey.currentContext!,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final maintenanceState = ref.watch(maintenanceNotifierProvider);
     final remindersState = ref.watch(remindersNotifierProvider);
     final bikeNames = ref.watch(bikeNamesMapProvider);
@@ -24,6 +52,7 @@ class MaintenanceHubScreen extends ConsumerWidget {
     return Scaffold(
       body: SafeArea(
         child: CustomScrollView(
+          controller: _scrollController,
           slivers: [
             // Header
             SliverToBoxAdapter(
@@ -86,6 +115,7 @@ class MaintenanceHubScreen extends ConsumerWidget {
 
             // Maintenance Section Header
             SliverToBoxAdapter(
+              key: _maintenanceLogKey,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
@@ -1772,10 +1802,7 @@ class _MaintenanceItem extends ConsumerWidget {
   Future<void> _handleMenuAction(BuildContext context, WidgetRef ref, String action) async {
     switch (action) {
       case 'edit':
-        final screen = context.findAncestorWidgetOfExactType<MaintenanceHubScreen>();
-        if (screen != null) {
-          screen._showMaintenanceForm(context, ref, record);
-        }
+        _showEditMaintenanceForm(context, ref, record);
         break;
       case 'toggle':
         await _toggleStatus(context, ref);
@@ -1835,6 +1862,196 @@ class _MaintenanceItem extends ConsumerWidget {
         }
       }
     }
+  }
+
+  void _showEditMaintenanceForm(BuildContext context, WidgetRef ref, Maintenance record) {
+    final titleController = TextEditingController(text: record.title);
+    final costController = TextEditingController(text: record.cost.toString());
+    final notesController = TextEditingController(text: record.notes ?? '');
+    String selectedCategory = record.category.name;
+    String selectedStatus = record.status.name;
+    String? selectedBikeId = record.bikeId;
+    DateTime selectedDate = record.date;
+    final bikeNamesMap = ref.read(bikeNamesMapProvider);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Edit Maintenance',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: titleController,
+                  decoration: InputDecoration(
+                    labelText: 'Title *',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: selectedBikeId,
+                  decoration: InputDecoration(
+                    labelText: 'Bike *',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  items: bikeNamesMap.entries
+                      .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
+                      .toList(),
+                  onChanged: (value) => setModalState(() => selectedBikeId = value),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: selectedCategory,
+                  decoration: InputDecoration(
+                    labelText: 'Category',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  items: MaintenanceCategory.values
+                      .map((c) => DropdownMenuItem(value: c.name, child: Text(c.name.toUpperCase())))
+                      .toList(),
+                  onChanged: (value) => setModalState(() => selectedCategory = value!),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: selectedStatus,
+                  decoration: InputDecoration(
+                    labelText: 'Status',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  items: MaintenanceStatus.values
+                      .map((s) => DropdownMenuItem(value: s.name, child: Text(s.name.toUpperCase())))
+                      .toList(),
+                  onChanged: (value) => setModalState(() => selectedStatus = value!),
+                ),
+                const SizedBox(height: 16),
+                GestureDetector(
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: selectedDate,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                    );
+                    if (picked != null) setModalState(() => selectedDate = picked);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('${selectedDate.day}/${selectedDate.month}/${selectedDate.year}'),
+                        const Icon(Icons.calendar_today),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: costController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Cost',
+                    prefixText: '₱ ',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: notesController,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    labelText: 'Notes',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      if (titleController.text.trim().isEmpty || selectedBikeId == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Please fill required fields')),
+                        );
+                        return;
+                      }
+                      final updated = Maintenance(
+                        id: record.id,
+                        title: titleController.text.trim(),
+                        bikeId: selectedBikeId!,
+                        category: MaintenanceCategory.values.firstWhere((c) => c.name == selectedCategory),
+                        status: MaintenanceStatus.values.firstWhere((s) => s.name == selectedStatus),
+                        date: selectedDate,
+                        cost: double.tryParse(costController.text) ?? 0,
+                        notes: notesController.text.trim().isEmpty ? null : notesController.text.trim(),
+                      );
+                      try {
+                        await ref.read(maintenanceNotifierProvider.notifier).updateMaintenance(updated);
+                        if (context.mounted) {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Maintenance updated!')),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error: ${e.toString()}')),
+                          );
+                        }
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: ChainlyTheme.primaryColor,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text(
+                      'Save Changes',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
