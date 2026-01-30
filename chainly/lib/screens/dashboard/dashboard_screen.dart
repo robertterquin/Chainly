@@ -14,7 +14,7 @@ import '../../core/di/service_locator.dart';
 /// Shows bike status summary, last maintenance, upcoming reminders,
 /// quick actions, and cycling tips
 class DashboardScreen extends ConsumerStatefulWidget {
-  final void Function(int, {bool scrollToMaintenance})? onTabChange;
+  final void Function(int, {bool scrollToMaintenance, bool scrollToReminders})? onTabChange;
   
   const DashboardScreen({super.key, this.onTabChange});
 
@@ -546,8 +546,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with WidgetsB
       children: [
         GestureDetector(
           onTap: () {
-            // Navigate to Maintenance tab which contains reminders (index 1)
-            widget.onTabChange?.call(1);
+            // Navigate to Maintenance tab and scroll to reminders section
+            widget.onTabChange?.call(1, scrollToReminders: true);
           },
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -640,8 +640,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with WidgetsB
               padding: const EdgeInsets.only(bottom: 10),
               child: GestureDetector(
                 onTap: () {
-                  // Navigate to Maintenance tab (index 1)
-                  widget.onTabChange?.call(1);
+                  // Navigate to Maintenance tab and scroll to reminders section
+                  widget.onTabChange?.call(1, scrollToReminders: true);
                 },
                 child: _buildReminderItem(
                   icon: icon,

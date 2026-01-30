@@ -21,6 +21,7 @@ class MaintenanceHubScreen extends ConsumerStatefulWidget {
 class MaintenanceHubScreenState extends ConsumerState<MaintenanceHubScreen> {
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _maintenanceLogKey = GlobalKey();
+  final GlobalKey _remindersKey = GlobalKey();
 
   @override
   void dispose() {
@@ -35,6 +36,19 @@ class MaintenanceHubScreenState extends ConsumerState<MaintenanceHubScreen> {
       if (_maintenanceLogKey.currentContext != null) {
         Scrollable.ensureVisible(
           _maintenanceLogKey.currentContext!,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
+  }
+
+  /// Scrolls to the Reminders section (top of the page)
+  void scrollToReminders() {
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (_remindersKey.currentContext != null) {
+        Scrollable.ensureVisible(
+          _remindersKey.currentContext!,
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
         );
@@ -98,8 +112,9 @@ class MaintenanceHubScreenState extends ConsumerState<MaintenanceHubScreen> {
             ),
 
             // Reminders Section
-            const SliverToBoxAdapter(
-              child: Padding(
+            SliverToBoxAdapter(
+              key: _remindersKey,
+              child: const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 20),
                 child: _RemindersSection(),
               ),

@@ -18,16 +18,19 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
   final GlobalKey<MaintenanceHubScreenState> _maintenanceKey = GlobalKey<MaintenanceHubScreenState>();
 
-  void _changeTab(int index, {bool scrollToMaintenance = false}) {
+  void _changeTab(int index, {bool scrollToMaintenance = false, bool scrollToReminders = false}) {
     setState(() {
       _currentIndex = index;
     });
     
-    // If navigating to maintenance tab and should scroll to maintenance log
-    if (index == 1 && scrollToMaintenance) {
-      // Wait for the tab switch to complete, then scroll
+    // If navigating to maintenance tab and should scroll
+    if (index == 1) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _maintenanceKey.currentState?.scrollToMaintenanceLog();
+        if (scrollToMaintenance) {
+          _maintenanceKey.currentState?.scrollToMaintenanceLog();
+        } else if (scrollToReminders) {
+          _maintenanceKey.currentState?.scrollToReminders();
+        }
       });
     }
   }
