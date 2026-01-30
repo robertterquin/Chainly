@@ -14,7 +14,9 @@ import '../../core/di/service_locator.dart';
 /// Shows bike status summary, last maintenance, upcoming reminders,
 /// quick actions, and cycling tips
 class DashboardScreen extends ConsumerStatefulWidget {
-  const DashboardScreen({super.key});
+  final void Function(int)? onTabChange;
+  
+  const DashboardScreen({super.key, this.onTabChange});
 
   @override
   ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
@@ -359,12 +361,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with WidgetsB
                     color: ChainlyTheme.textPrimary,
                   ),
                 ),
-                Text(
-                  'View All',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: ChainlyTheme.primaryColor,
-                    fontWeight: FontWeight.w500,
+                GestureDetector(
+                  onTap: () {
+                    // Navigate to Maintenance tab (index 1)
+                    widget.onTabChange?.call(1);
+                  },
+                  child: Text(
+                    'View All',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: ChainlyTheme.primaryColor,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ],
@@ -530,19 +538,25 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with WidgetsB
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Upcoming Reminders',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: ChainlyTheme.textPrimary,
+        GestureDetector(
+          onTap: () {
+            // Navigate to Maintenance tab which contains reminders (index 1)
+            widget.onTabChange?.call(1);
+          },
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Upcoming Reminders',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: ChainlyTheme.textPrimary,
+                ),
               ),
-            ),
-            Icon(Icons.arrow_forward_ios, size: 16, color: ChainlyTheme.textSecondary),
-          ],
+              Icon(Icons.arrow_forward_ios, size: 16, color: ChainlyTheme.textSecondary),
+            ],
+          ),
         ),
         const SizedBox(height: 12),
         if (reminders.isEmpty)
@@ -618,11 +632,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with WidgetsB
 
             return Padding(
               padding: const EdgeInsets.only(bottom: 10),
-              child: _buildReminderItem(
-                icon: icon,
-                title: reminder.title,
-                subtitle: subtitle,
-                color: isOverdue ? ChainlyTheme.errorColor : ChainlyTheme.warningColor,
+              child: GestureDetector(
+                onTap: () {
+                  // Navigate to Maintenance tab (index 1)
+                  widget.onTabChange?.call(1);
+                },
+                child: _buildReminderItem(
+                  icon: icon,
+                  title: reminder.title,
+                  subtitle: subtitle,
+                  color: isOverdue ? ChainlyTheme.errorColor : ChainlyTheme.warningColor,
+                ),
               ),
             );
           }),

@@ -17,42 +17,23 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = const [
-    DashboardScreen(),
-    MaintenanceHubScreen(),
-    RideScreen(),
-    ProfileScreen(),
-  ];
-
-  final List<NavigationDestination> _destinations = const [
-    NavigationDestination(
-      icon: Icon(Icons.home_outlined),
-      selectedIcon: Icon(Icons.home),
-      label: 'Home',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.build_outlined),
-      selectedIcon: Icon(Icons.build),
-      label: 'Maintenance',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.directions_bike_outlined),
-      selectedIcon: Icon(Icons.directions_bike),
-      label: 'Ride',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.person_outline),
-      selectedIcon: Icon(Icons.person),
-      label: 'Profile',
-    ),
-  ];
+  void _changeTab(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
-        children: _screens,
+        children: [
+          DashboardScreen(onTabChange: _changeTab),
+          const MaintenanceHubScreen(),
+          const RideScreen(),
+          const ProfileScreen(),
+        ],
       ),
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.all(16),
@@ -90,7 +71,28 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 borderRadius: BorderRadius.circular(16),
               ),
               labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-              destinations: _destinations,
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.home_outlined),
+                  selectedIcon: Icon(Icons.home),
+                  label: 'Home',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.build_outlined),
+                  selectedIcon: Icon(Icons.build),
+                  label: 'Maintenance',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.directions_bike_outlined),
+                  selectedIcon: Icon(Icons.directions_bike),
+                  label: 'Ride',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.person_outline),
+                  selectedIcon: Icon(Icons.person),
+                  label: 'Profile',
+                ),
+              ],
             ),
           ),
         ),
