@@ -466,12 +466,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with WidgetsB
                   color: ChainlyTheme.textPrimary,
                 ),
               ),
-              Text(
-                'View All',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: ChainlyTheme.primaryColor,
-                  fontWeight: FontWeight.w500,
+              GestureDetector(
+                onTap: () {
+                  // Navigate to Maintenance tab (index 1)
+                  widget.onTabChange?.call(1);
+                },
+                child: Text(
+                  'View All',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: ChainlyTheme.primaryColor,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
             ],
